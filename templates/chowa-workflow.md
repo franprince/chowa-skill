@@ -1,19 +1,30 @@
----
-name: chowa-skill
-description: >
-  Spec-driven development workflow — spec → plan → execute pipeline, atomic
-  Conventional Commits, PR generation, branching rules, and mechanical
-  sub-task delegation — using only this harness's own native tools (Read,
-  Edit, Write, Bash, Agent) plus `git`/`gh`. No CLI, no bundled engine,
-  nothing to install or version separately from the skill itself. Use this
-  whenever the user asks to start a new feature, write a spec or
-  implementation plan, commit changes, open a pull request, check whether a
-  PR is actually ready to merge, or delegate mechanical work to a cheaper
-  model — even if they don't name this skill explicitly. Detects whether
-  the current project already follows this convention before applying
-  anything.
----
+<!--
+  Source of truth for the shared parts of the Chōwa workflow, consumed by
+  two generators:
 
+    - chowa-skill's own `scripts/generate-skill.mjs` (this repo), which
+      keeps `shared` + `chowa-skill-only` blocks and appends the two
+      sections that live only in the generated file (see that script).
+    - chowa's `scripts/sync-skill.ts` (github.com/franprince/chowa), which
+      fetches this file at a pinned commit SHA, keeps `shared` +
+      `chowa-only` blocks, and splices the result into its own skeleton
+      (frontmatter, Step 0, and the fully chowa-only sections — Model
+      Routing, Remote Update Checks, Quota-Aware Session Auto-Resume,
+      Subagent-Driven Development, CLI Reference — are chowa-local and
+      never extracted from here).
+
+  Every block below is wrapped in exactly one start/end marker pair, tagged
+  `shared`, `chowa-only`, or `chowa-skill-only`. Headings inside shared/
+  mixed sections carry no section number — each generator numbers `### `
+  headings sequentially when it assembles its own Workflow Rules list,
+  since the two outputs don't share a numbering scheme.
+
+  Changing this file changes both chowa-skill's next generated SKILL.md
+  and, once chowa's pin is bumped, chowa's canonical + portable skills
+  too. Treat it accordingly.
+-->
+
+<!-- variant:chowa-skill-only -->
 # Chōwa Skill (pure-skill variant)
 
 This is a lean sibling of [Chōwa](https://github.com/franprince/chowa), a
@@ -47,10 +58,14 @@ Check before applying anything below:
    personally work in, write `~/.chowa-skill/preferences.json` with
    `{"alwaysOn": true}` for them (creating the directory if needed) rather
    than asking them to run a command that doesn't exist.
+<!-- variant:end -->
 
+<!-- variant:shared -->
 ## Workflow Rules
+<!-- variant:end -->
 
-### 1. Specification-Driven Pipeline (Spec → Plan → Execute)
+<!-- variant:shared -->
+### Specification-Driven Pipeline (Spec → Plan → Execute)
 
 For all feature requests and non-trivial changes, follow this 3-stage
 lifecycle:
@@ -72,8 +87,10 @@ lifecycle:
    the Code Quality & Build Verification section below). Always ask the
    user if they want a Pull Request opened after committing on a new
    feature branch.
+<!-- variant:end -->
 
-### 2. Branching & PR Workflow
+<!-- variant:shared -->
+### Branching & PR Workflow
 
 - Always create a new branch for features/fixes/tasks — never work or push
   directly on `main` or `master`.
@@ -83,11 +100,19 @@ lifecycle:
   when patching a live incident) and PR from there to `main`. If the
   project has no `develop` branch, branch from and PR against `main`
   directly. Never push or PR straight to `main`/`master` outside that flow.
+<!-- variant:end -->
+<!-- variant:chowa-skill-only -->
 - Check the local branch is up to date before starting work or committing:
   `git fetch origin && git status -sb`.
+<!-- variant:end -->
+<!-- variant:shared -->
 - Always ask the user if they want a PR opened, whenever creating a new
   branch and committing.
+<!-- variant:end -->
+<!-- variant:chowa-skill-only -->
 - Open the PR with `gh pr create`.
+<!-- variant:end -->
+<!-- variant:shared -->
 - After opening a PR, check whether it's actually mergeable against its
   base (`gh pr view <n> --json mergeable,mergeStateStatus`) — don't treat
   "the PR exists" as "the PR is ready." A base branch that moved since you
@@ -95,9 +120,23 @@ lifecycle:
   can leave it `CONFLICTING` with no error at creation time, and CI may
   not even run until it's resolved. If so, merge the base branch into your
   branch locally, resolve, push, and re-verify before calling the PR done.
+<!-- variant:end -->
 
-### 3. Commit Workflow & Messages
+<!-- variant:shared -->
+### Commit Workflow & Messages
+<!-- variant:end -->
 
+<!-- variant:chowa-only -->
+```bash
+chowa commit
+```
+
+Chōwa clusters the diff by file, which is a heuristic, not a verdict: if
+two reported clusters are one logical change (a doc and the index row
+pointing at it, a function and its test), commit them together. Splitting
+them would produce a commit that doesn't stand on its own.
+<!-- variant:end -->
+<!-- variant:chowa-skill-only -->
 Read the diff yourself (`git diff`, `git status`) and split it into
 logical clusters by judgment — a heuristic like "group by file" is a
 starting point, not a verdict: if two files are one logical change (a
@@ -105,22 +144,32 @@ function and its test, a doc and the index row pointing at it), commit
 them together. Splitting them would produce a commit that doesn't stand on
 its own. Write each commit message directly; there's no separate model
 call to delegate this to here.
+<!-- variant:end -->
+<!-- variant:shared -->
 Commits must follow Conventional Commits: `type(scope): concise imperative
 description`.
 
 - Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `ci`, `build`, `style`, `revert`
 - Scope: whatever the project uses (check recent `git log`, or an existing
   `commitlint`/similar config).
+<!-- variant:end -->
+<!-- variant:chowa-only -->
+In Chōwa's own repo the scopes are `core`, `adapters`, `router`, `git`,
+`cli`, `integrations`.
+<!-- variant:end -->
 
-### 4. Code Quality & Build Verification
+<!-- variant:shared -->
+### Code Quality & Build Verification
 
 Before committing, run the *project's own* test/lint/build scripts —
 typically something like `test`, `lint`, `build` in its `package.json`
 `scripts`, or whatever the project's own tooling is. This workflow's own
 conventions (model routing, commit-splitting, or their absence) don't
 replace a project's own quality gates.
+<!-- variant:end -->
 
-### 5. Delegation Guidance
+<!-- variant:chowa-skill-only -->
+### Delegation Guidance
 
 There's no live routing policy to resolve here — no config file, no
 provider API to query. Use this as a starting heuristic, and defer to
@@ -131,31 +180,75 @@ whatever the project's own conventions already say if they conflict:
 | Mechanical (renames, formatting, boilerplate) — trivial, one-line | Handle inline yourself; the round-trip costs more than it saves. |
 | Mechanical — large or repetitive (multi-file sweep, repo-wide pass) | Delegate via the `Agent` tool to a subagent pinned to a fast/cheap model (see below). |
 | Refactor, debug, architecture, security | Primary session model — these need full context and judgment a cheaper model doesn't have. |
+<!-- variant:end -->
 
-### 6. Delegating Mechanical Sub-Tasks
+<!-- variant:shared -->
+### Delegating Mechanical Sub-Tasks
+<!-- variant:end -->
 
+<!-- variant:chowa-only -->
+Not every step of a live pipeline needs the primary session's model. A
+sub-task qualifies for delegation only if, before delegating, you can
+state exactly what the correct output looks like (or exactly what
+mechanical rule to apply) — renames, formatting passes, boilerplate
+scaffolding, and the same shape of work `chowa commit`/`chowa pr` already
+delegate on your behalf (a rigid, checkable output generated from an
+already fully-specified input). If any part of "what should this become"
+is still an open design question, don't delegate — handle it inline.
+
+Skip delegation for trivial one-line edits — the round-trip costs more
+than it saves. Delegate only when the mechanical work is large or
+repetitive enough (a multi-file rename sweep, a repo-wide formatting pass)
+that running it on a cheaper model is worth a subagent call.
+<!-- variant:end -->
+<!-- variant:chowa-skill-only -->
 A sub-task qualifies for delegation only if, before delegating, you can
 state exactly what the correct output looks like (or exactly what
 mechanical rule to apply). If any part of "what should this become" is
 still an open design question, don't delegate — handle it inline.
+<!-- variant:end -->
 
+<!-- variant:chowa-only -->
+To delegate, first resolve the target model — run `chowa route --kind
+mechanical --complexity low` (the same profile `chowa commit`/`chowa pr`
+already use) and read `target.model` from its JSON output. Then invoke the
+`Agent` tool with `chowa:chowa-mechanical` as the subagent and that
+resolved value as an explicit `model:` override — this takes precedence
+over whatever the subagent definition's own frontmatter pins, so the
+actual model always reflects the live routing policy (`chowa.config.ts`)
+rather than a value hardcoded in the subagent file.
+<!-- variant:end -->
+<!-- variant:chowa-skill-only -->
 To delegate, invoke the `Agent` tool with the packaged mechanical subagent
 as the target.
+<!-- variant:end -->
+<!-- variant:shared -->
 Ask it to report back a structured summary of exactly what changed — not
 just "done" — so you don't need to re-read every touched file yourself. If
 the user has asked you to handle a specific step directly, that overrides
 delegation for that step only. If the subagent hits something needing
 judgment mid-task, expect it to stop and hand back rather than deciding on
 its own.
+<!-- variant:end -->
 
-### 7. PR Description Generation
+<!-- variant:shared -->
+### PR Description Generation
+<!-- variant:end -->
 
+<!-- variant:chowa-only -->
+```bash
+chowa pr --base <branch>
+```
+<!-- variant:end -->
+<!-- variant:chowa-skill-only -->
 Read the commit history and diff against the target base yourself
 (`git log <base>..HEAD`, `git diff <base>...HEAD`), then write the PR
 description directly — summary, changes, testing notes, and (for a
 release/hotfix) a rollout/rollback plan. Open or update it with
 `gh pr create` / `gh pr edit`.
+<!-- variant:end -->
 
+<!-- variant:shared -->
 Whether the body comes from `chowa pr` or you write it directly, close
 every PR with this line, on its own, after everything else:
 
@@ -165,29 +258,4 @@ every PR with this line, on its own, after everything else:
 
 Never the default Claude Code attribution trailer — this replaces it, it
 doesn't sit alongside it.
-
-## What this skill intentionally does not do
-
-- **No model routing against live provider data.** The table in Delegation
-  Guidance is a fixed heuristic, not a resolved policy — there's no
-  `chowa.config.ts` and no router here.
-- **No session-lifecycle tracking or quota-aware auto-resume.** That needs
-  real hook scripts reacting to `SessionStart`/`StopFailure` events, which
-  fire outside any model turn — genuinely not something a tool-calls-only
-  skill can do. If you need that, it lives in the CLI-backed sibling
-  project, not here.
-- **No commit-message generation via a separate delegated model call.**
-  The primary session model writes commit messages and PR descriptions
-  directly — simpler than routing that through another call, at the cost
-  of not being able to pin a cheaper model specifically for it.
-
-## Quick Reference
-
-| What | How |
-|---|---|
-| Check remote is up to date | `git fetch origin && git status -sb` |
-| Inspect the diff before committing | `git diff`, `git status` |
-| Open a PR | `gh pr create` |
-| Check a PR is actually mergeable | `gh pr view <n> --json mergeable,mergeStateStatus` |
-| PR description context | `git log <base>..HEAD`, `git diff <base>...HEAD` |
-| Personal always-on preference | `~/.chowa-skill/preferences.json` — `{"alwaysOn": true}` |
+<!-- variant:end -->

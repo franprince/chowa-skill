@@ -24,9 +24,20 @@ Both install the same thing — this repo is the actual source either way; the m
 
 ## What's here
 
-- `skills/chowa-skill/SKILL.md` — the workflow itself
+- `skills/chowa-skill/SKILL.md` — the workflow itself, generated (see below)
 - `agents/chowa-skill-mechanical.md` — subagent for delegated mechanical work (`model: haiku`, `Read`/`Edit`/`Bash` only)
 - `hooks/hooks.json` + `scripts/guard-push.mjs` — push-protection hook, blocks direct pushes to `main`/`master`
+
+## `templates/chowa-workflow.md` is the source of truth
+
+`skills/chowa-skill/SKILL.md` is generated from `templates/chowa-workflow.md`
+via `node scripts/generate-skill.mjs` (`--check` verifies it's in sync; CI
+enforces this on every PR). The template also feeds
+[chowa](https://github.com/franprince/chowa)'s own canonical and portable
+skill files, fetched at a pinned commit SHA — a change here that changes
+what the template says is a breaking change for chowa's next sync, not
+just this repo. Edit the template, not the generated file, and run the
+generator before committing.
 
 ## License
 
