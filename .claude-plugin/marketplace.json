@@ -1,0 +1,14 @@
+{
+  "name": "chowa-skill",
+  "owner": {
+    "name": "Fran",
+    "url": "https://github.com/franprince"
+  },
+  "plugins": [
+    {
+      "name": "chowa-skill",
+      "source": "./",
+      "description": "Spec-driven pipeline, atomic commits, PR generation, and mechanical delegation — pure Claude Code skill, no CLI or bundled engine"
+    }
+  ]
+}
