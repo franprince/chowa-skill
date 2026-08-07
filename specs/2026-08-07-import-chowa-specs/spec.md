@@ -1,7 +1,7 @@
 # Specification: Import Relevant Specs from Original Chōwa Repository
 
 - **Date**: 2026-08-07
-- **Status**: Implemented
+- **Status**: Done
 - **Slug**: `import-chowa-specs`
 
 ## Problem Statement

@@ -1,7 +1,7 @@
 # Implementation Plan: Guard Spec PreToolUse Hook
 
 - **Date**: 2026-08-07
-- **Status**: Implemented
+- **Status**: Done
 - **Slug**: `guard-spec-hook`
 
 ## Proposed Changes

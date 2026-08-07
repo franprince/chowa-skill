@@ -1,6 +1,6 @@
 # Spec: Plugin distribution (the repo becomes the distribution channel)
 
-Status: **Draft** — 2026-08-01. Drafted on branch `feat/plugin-distribution`.
+Status: **Done** — 2026-08-01. Implemented in chowa-skill plugin repository.
 
 ## Problem Statement
 

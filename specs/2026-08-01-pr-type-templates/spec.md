@@ -1,6 +1,6 @@
 # Spec: PR templates by branch flow (standard / feature / release)
 
-Status: **Approved** — original two open questions resolved as proposed:
+Status: **Done** — 2026-08-01. Implemented in CLI and shared workflow template.
 (1) single `rolloutPlan` field, not split into `rolloutPlan`/
 `rollbackPlan`; (2) `branchName` is a required parameter on
 `generatePRDescription`, no default. **Amended** after initial

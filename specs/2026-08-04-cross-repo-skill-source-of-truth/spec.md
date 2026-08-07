@@ -1,6 +1,6 @@
 # Spec: Cross-repo skill source of truth (chowa-skill → chowa)
 
-Status: **Approved** — 2026-08-05. Sync mechanism resolved (Option B); see
+Status: **Done** — 2026-08-05. Implemented via generate-skill.mjs.
 Resolved Question below. Proceeding to Stage 2 (implementation plan).
 
 > **2026-08-05 update:** `chowa-skill` moved out of
