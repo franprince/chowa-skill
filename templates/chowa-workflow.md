@@ -47,9 +47,9 @@ Check before applying anything below:
    or the user explicitly asks, in this conversation, to use this workflow
    here.
 2. **Personal always-on preference** — read `~/.chowa-skill/preferences.json`
-   (a plain JSON file, no CLI involved: `{"alwaysOn": true}`). If it doesn't
-   exist or can't be read, treat it as off. If enabled, apply this workflow
-   to every project regardless of the per-project signal above.
+   on turn 1 of every session (a plain JSON file: `{"alwaysOn": true}`). If it
+   doesn't exist or can't be read, treat it as off. If enabled, apply this
+   workflow automatically on turn 1 to every project regardless of per-project signals.
 3. **Unrelated project** — none of the above. Say that plainly, **once per
    session, not on every subsequent turn**, then defer to the project's own
    conventions (`CONTRIBUTING.md`, existing commit style in `git log`) for
@@ -249,6 +249,19 @@ Read the commit history and diff against the target base yourself
 description directly — summary, changes, testing notes, and (for a
 release/hotfix) a rollout/rollback plan. Open or update it with
 `gh pr create` / `gh pr edit`.
+<!-- variant:end -->
+
+<!-- variant:shared -->
+### ASD-STE100 Simplified Technical English Mode (Conversation Only)
+
+When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:
+
+1. **Active Voice & Imperative Verbs**: Use active voice only. Start instructions with strong imperative verbs (e.g., `Write`, `Update`, `Run`, `Verify`).
+2. **Sentence Length Limits**:
+   - Maximum 20 words for procedural steps and instructions.
+   - Maximum 25 words for descriptive statements.
+3. **One Instruction Per Sentence**: Write single, clear, un-nested sentences. Number procedural steps sequentially.
+4. **Controlled Vocabulary**: Use plain technical English. Avoid passive phrasing, complex idioms, or ambiguous jargon.
 <!-- variant:end -->
 
 <!-- variant:shared -->
