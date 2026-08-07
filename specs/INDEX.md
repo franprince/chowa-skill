@@ -27,3 +27,4 @@ Chōwa's spec → plan → execute pipeline persists every iteration's `spec.md`
 | 2026-08-07 | [backlog-creation-step](2026-08-07-backlog-creation-step/spec.md) | Done | Add backlog creation step (`specs/BACKLOG.md`) for complex tasks |
 | 2026-08-07 | [import-chowa-specs](2026-08-07-import-chowa-specs/spec.md) | Done | Import relevant historical specs from original Chōwa repository |
 | 2026-08-07 | [standardize-spec-statuses](2026-08-07-standardize-spec-statuses/spec.md) | Done | Standardize spec status vocabulary and normalize all completed specs |
+| 2026-08-07 | [always-on-and-ste100-mode](2026-08-07-always-on-and-ste100-mode/spec.md) | Done | Always-on turn 1 session presence and ASD-STE100 Simplified Technical English mode |
