@@ -52,22 +52,25 @@ Check before applying anything below:
 
 ### 1. Specification-Driven Pipeline (Spec → Plan → Execute)
 
-For all feature requests and non-trivial changes, follow this 3-stage
-lifecycle:
+For all feature requests and non-trivial changes, follow this lifecycle:
 
-1. **Stage 1: Specification (`spec.md`)** — problem statement, goals,
+1. **Stage 0: Backlog Breakdown (`specs/BACKLOG.md`)** — for complex tasks
+   spanning multiple modules, dependent phases, or multiple PRs, create
+   `specs/BACKLOG.md` first to outline epic milestones, sub-tasks, and
+   execution order before breaking individual tasks into specs.
+2. **Stage 1: Specification (`spec.md`)** — problem statement, goals,
    non-goals, input/output schemas, edge cases, and acceptance criteria.
    Get explicit user approval before Stage 2.
-2. **Stage 2: Implementation Plan (`implementation_plan.md`)** — files to
+3. **Stage 2: Implementation Plan (`implementation_plan.md`)** — files to
    modify/create, component boundaries, test plan. Get explicit user
    approval before writing code.
-3. **Persistence** — write both files to `specs/<YYYY-MM-DD>-<slug>/`,
+4. **Persistence** — write both files to `specs/<YYYY-MM-DD>-<slug>/`,
    never as loose root-level files, and add a row to `specs/INDEX.md`
    (create that layout if the project doesn't have one yet). Root-level
    `spec.md`/`implementation_plan.md` get overwritten by the next feature's
    docs with no record of what was approved — that's how intent drifts
    across iterations.
-4. **Stage 3: Execution & Verification** — implement the approved plan
+5. **Stage 3: Execution & Verification** — implement the approved plan
    (code + tests), then verify with the project's own quality gates (see
    the Code Quality & Build Verification section below). Always ask the
    user if they want a Pull Request opened after committing on a new
