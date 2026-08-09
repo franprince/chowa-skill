@@ -252,6 +252,30 @@ release/hotfix) a rollout/rollback plan. Open or update it with
 <!-- variant:end -->
 
 <!-- variant:shared -->
+**⚠️ Experimental — Visual Proof (opt-in):** every PR description MUST
+include a `### Visual Proof` section, placed after `### Summary`. If the
+diff touches styling files (`*.css`, `*.scss`, `*.less`, Tailwind config),
+UI/frontend components (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.html`),
+or graphic assets/layout templates/theme definitions, attach visual
+evidence — a screenshot, a before/after image table, a Playwright
+snapshot, or a carousel — as markdown image links. For every other PR,
+write `N/A (non-visual change)` in that section instead of omitting it.
+
+```markdown
+### Summary
+<concise description of changes>
+
+### Visual Proof
+<!-- UI/styling changes: attach before/after screenshots, carousels, or
+     image links. Non-visual changes: N/A (non-visual change). -->
+![Visual Proof](<path-or-url>)
+
+### Verification
+<test & quality gate results>
+```
+<!-- variant:end -->
+
+<!-- variant:shared -->
 ### ASD-STE100 Simplified Technical English Mode (Conversation Only)
 
 When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:

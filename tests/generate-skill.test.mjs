@@ -67,6 +67,14 @@ test('does not number ### headings inside fenced code blocks', () => {
   assert.match(rendered, /^### Visual Proof$/m);
 });
 
+test('generated skill requires a Visual Proof section in PR descriptions', () => {
+  const template = readFileSync(TEMPLATE, 'utf-8');
+  const rendered = renderTemplate(template);
+
+  assert.match(rendered, /### Visual Proof/);
+  assert.match(rendered, /N\/A \(non-visual change\)/);
+});
+
 test('throws on an unrecognized variant tag', () => {
   const template = '<!-- variant:bogus -->\nx\n<!-- variant:end -->';
 
