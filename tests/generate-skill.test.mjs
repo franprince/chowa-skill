@@ -47,6 +47,26 @@ test('numbers ### headings sequentially in document order', () => {
   assert.doesNotMatch(rendered, /Dropped/);
 });
 
+test('does not number ### headings inside fenced code blocks', () => {
+  const template = [
+    '<!-- variant:shared -->',
+    '### First',
+    '```markdown',
+    '### Summary',
+    '### Visual Proof',
+    '```',
+    '### Second',
+    '<!-- variant:end -->',
+  ].join('\n');
+
+  const rendered = renderTemplate(template);
+
+  assert.match(rendered, /### 1\. First/);
+  assert.match(rendered, /### 2\. Second/);
+  assert.match(rendered, /^### Summary$/m);
+  assert.match(rendered, /^### Visual Proof$/m);
+});
+
 test('throws on an unrecognized variant tag', () => {
   const template = '<!-- variant:bogus -->\nx\n<!-- variant:end -->';
 

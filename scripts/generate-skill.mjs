@@ -99,7 +99,18 @@ export function renderTemplate(template) {
   const collapsed = unwrapped.replace(/\n{3,}/g, '\n\n').trim();
 
   let n = 0;
-  return collapsed.replace(/^### (.+)$/gm, (_, title) => `### ${++n}. ${title}`);
+  let inFence = false;
+  return collapsed
+    .split('\n')
+    .map((line) => {
+      if (/^```/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) return line;
+      return line.replace(/^### (.+)$/, (_, title) => `### ${++n}. ${title}`);
+    })
+    .join('\n');
 }
 
 function assertWellFormed(template) {
