@@ -36,9 +36,9 @@ Check before applying anything below:
    or the user explicitly asks, in this conversation, to use this workflow
    here.
 2. **Personal always-on preference** — read `~/.chowa-skill/preferences.json`
-   (a plain JSON file, no CLI involved: `{"alwaysOn": true}`). If it doesn't
-   exist or can't be read, treat it as off. If enabled, apply this workflow
-   to every project regardless of the per-project signal above.
+   on turn 1 of every session (a plain JSON file: `{"alwaysOn": true}`). If it
+   doesn't exist or can't be read, treat it as off. If enabled, apply this
+   workflow automatically on turn 1 to every project regardless of per-project signals.
 3. **Unrelated project** — none of the above. Say that plainly, **once per
    session, not on every subsequent turn**, then defer to the project's own
    conventions (`CONTRIBUTING.md`, existing commit style in `git log`) for
@@ -158,6 +158,39 @@ Read the commit history and diff against the target base yourself
 description directly — summary, changes, testing notes, and (for a
 release/hotfix) a rollout/rollback plan. Open or update it with
 `gh pr create` / `gh pr edit`.
+
+**⚠️ Experimental — Visual Proof (opt-in):** every PR description MUST
+include a `### Visual Proof` section, placed after `### Summary`. If the
+diff touches styling files (`*.css`, `*.scss`, `*.less`, Tailwind config),
+UI/frontend components (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.html`),
+or graphic assets/layout templates/theme definitions, attach visual
+evidence — a screenshot, a before/after image table, a Playwright
+snapshot, or a carousel — as markdown image links. For every other PR,
+write `N/A (non-visual change)` in that section instead of omitting it.
+
+```markdown
+### Summary
+<concise description of changes>
+
+### Visual Proof
+<!-- UI/styling changes: attach before/after screenshots, carousels, or
+     image links. Non-visual changes: N/A (non-visual change). -->
+![Visual Proof](<path-or-url>)
+
+### Verification
+<test & quality gate results>
+```
+
+### 8. ASD-STE100 Simplified Technical English Mode (Conversation Only)
+
+When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:
+
+1. **Active Voice & Imperative Verbs**: Use active voice only. Start instructions with strong imperative verbs (e.g., `Write`, `Update`, `Run`, `Verify`).
+2. **Sentence Length Limits**:
+   - Maximum 20 words for procedural steps and instructions.
+   - Maximum 25 words for descriptive statements.
+3. **One Instruction Per Sentence**: Write single, clear, un-nested sentences. Number procedural steps sequentially.
+4. **Controlled Vocabulary**: Use plain technical English. Avoid passive phrasing, complex idioms, or ambiguous jargon.
 
 Whether the body comes from `chowa pr` or you write it directly, close
 every PR with this line, on its own, after everything else:
