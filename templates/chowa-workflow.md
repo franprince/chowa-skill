@@ -171,6 +171,19 @@ conventions (model routing, commit-splitting, or their absence) don't
 replace a project's own quality gates.
 <!-- variant:end -->
 
+<!-- variant:shared -->
+### Deterministic Workflow Enforcement via Agent Hooks
+
+While workflow rules guide model turns, agent hooks enforce strict guardrails programmatically before tool execution:
+
+1. **Push Protection Guard (`guard-push.mjs`)**:
+   Hooked into `PreToolUse` for `Bash` commands in `hooks/hooks.json`. Inspects `git push` command lines and deterministically blocks direct pushes or deletes to protected branches (`main`, `master`).
+2. **Spec Location Guard (`guard-spec.mjs`)**:
+   Hooked into `PreToolUse` for `Bash`, `Write`, and `Edit` tools. Prevents creating or modifying root-level `spec.md` or `implementation_plan.md` files, enforcing persistence under `specs/<YYYY-MM-DD>-<slug>/`.
+3. **Custom Hook Configuration**:
+   Repositories using Chōwa can add or extend hooks in `.agents/hooks.json` or `hooks/hooks.json` to enforce quality gates deterministically prior to tool execution.
+<!-- variant:end -->
+
 <!-- variant:chowa-skill-only -->
 ### Delegation Guidance
 
