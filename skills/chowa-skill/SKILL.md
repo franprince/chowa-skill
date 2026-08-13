@@ -123,7 +123,18 @@ typically something like `test`, `lint`, `build` in its `package.json`
 conventions (model routing, commit-splitting, or their absence) don't
 replace a project's own quality gates.
 
-### 5. Delegation Guidance
+### 5. Deterministic Workflow Enforcement via Agent Hooks
+
+While workflow rules guide model turns, agent hooks enforce strict guardrails programmatically before tool execution:
+
+1. **Push Protection Guard (`guard-push.mjs`)**:
+   Hooked into `PreToolUse` for `Bash` commands in `hooks/hooks.json`. Inspects `git push` command lines and deterministically blocks direct pushes or deletes to protected branches (`main`, `master`).
+2. **Spec Location Guard (`guard-spec.mjs`)**:
+   Hooked into `PreToolUse` for `Bash`, `Write`, and `Edit` tools. Prevents creating or modifying root-level `spec.md` or `implementation_plan.md` files, enforcing persistence under `specs/<YYYY-MM-DD>-<slug>/`.
+3. **Custom Hook Configuration**:
+   Repositories using Chōwa can add or extend hooks in `.agents/hooks.json` or `hooks/hooks.json` to enforce quality gates deterministically prior to tool execution.
+
+### 6. Delegation Guidance
 
 There's no live routing policy to resolve here — no config file, no
 provider API to query. Use this as a starting heuristic, and defer to
@@ -135,7 +146,7 @@ whatever the project's own conventions already say if they conflict:
 | Mechanical — large or repetitive (multi-file sweep, repo-wide pass) | Delegate via the `Agent` tool to a subagent pinned to a fast/cheap model (see below). |
 | Refactor, debug, architecture, security | Primary session model — these need full context and judgment a cheaper model doesn't have. |
 
-### 6. Delegating Mechanical Sub-Tasks
+### 7. Delegating Mechanical Sub-Tasks
 
 A sub-task qualifies for delegation only if, before delegating, you can
 state exactly what the correct output looks like (or exactly what
@@ -151,7 +162,7 @@ delegation for that step only. If the subagent hits something needing
 judgment mid-task, expect it to stop and hand back rather than deciding on
 its own.
 
-### 7. PR Description Generation
+### 8. PR Description Generation
 
 Read the commit history and diff against the target base yourself
 (`git log <base>..HEAD`, `git diff <base>...HEAD`), then write the PR
@@ -181,7 +192,7 @@ write `N/A (non-visual change)` in that section instead of omitting it.
 <test & quality gate results>
 ```
 
-### 8. ASD-STE100 Simplified Technical English Mode (Conversation Only)
+### 9. ASD-STE100 Simplified Technical English Mode (Conversation Only)
 
 When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:
 
