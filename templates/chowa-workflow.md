@@ -289,6 +289,26 @@ write `N/A (non-visual change)` in that section instead of omitting it.
 <!-- variant:end -->
 
 <!-- variant:shared -->
+### Storybook Before/After Visual Proof (On-Request)
+
+When the user explicitly asks for visual proof of a Storybook-backed UI
+change — not automatically, and not implied merely by a diff touching
+styling files — run:
+
+```bash
+node scripts/storybook-proof.mjs --base <base-ref>
+```
+
+Requires the target project to already have Storybook and Playwright
+configured; the script exits with a clear message if either is missing
+rather than attempting to install them. It captures "before" screenshots
+from a temporary worktree at `<base-ref>` and "after" screenshots from
+the current working tree, for the stories belonging to components the
+diff actually touched, and prints a ready-to-paste Markdown before/after
+table for the `### Visual Proof` PR section.
+<!-- variant:end -->
+
+<!-- variant:shared -->
 ### Roadmap Visualization
 
 **Trigger**: the user asks to see or visualize the roadmap, or to present
