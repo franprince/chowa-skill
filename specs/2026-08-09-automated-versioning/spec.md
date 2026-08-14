@@ -1,7 +1,7 @@
 # Specification: Automated Version Bumping for the Plugin Manifest
 
 - **Date**: 2026-08-09
-- **Status**: Draft
+- **Status**: Done
 - **Slug**: `automated-versioning`
 
 ## Problem Statement
