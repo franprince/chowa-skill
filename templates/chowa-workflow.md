@@ -289,6 +289,37 @@ write `N/A (non-visual change)` in that section instead of omitting it.
 <!-- variant:end -->
 
 <!-- variant:shared -->
+### Roadmap Visualization
+
+**Trigger**: the user asks to see or visualize the roadmap, or to present
+the project's development history.
+
+**Data gathering**: read `specs/INDEX.md` first. Default to rich mode —
+also read each referenced `spec.md`'s Problem Statement/Goals sections for
+narrative depth. Switch to lean mode automatically once the index has more
+than 20 entries (use only the `Date | Slug | Status | Summary` row, no
+per-spec reads), or immediately if the user asked for something quick. Ask
+directly whenever which mode is wanted is ambiguous.
+
+**Before building**: give the page real visual design effort — a
+considered palette, paired typefaces, and deliberate layout — the same
+rigor as any presentation-quality deliverable. Not a plain list.
+
+**Layout**: a chronological timeline ordered by date, with each entry
+color-coded by status (`Draft`, `Approved`, `In Progress`, `Done`,
+`Dismissed`, `Superseded by <link>`), a ⚠️ experimental marker surfaced
+from a spec's own `Stability` field when present, a status filter, and
+per-entry expand/collapse for the rich-mode narrative text.
+
+**Output**: a fully self-contained HTML file (inline CSS/JS, no external
+requests, both light and dark themes handled via `prefers-color-scheme`)
+written to a local scratch path — never `specs/`, never committed — then
+opened in the system default browser (`xdg-open`/`open`/`start`,
+depending on OS). Report the local file path back to the user. This stays
+entirely local: no upload, no network call, no claude.ai dependency.
+<!-- variant:end -->
+
+<!-- variant:shared -->
 ### ASD-STE100 Simplified Technical English Mode (Conversation Only)
 
 When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:

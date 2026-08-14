@@ -30,3 +30,4 @@ Chōwa's spec → plan → execute pipeline persists every iteration's `spec.md`
 | 2026-08-07 | [always-on-and-ste100-mode](2026-08-07-always-on-and-ste100-mode/spec.md) | Done | Always-on turn 1 session presence and ASD-STE100 Simplified Technical English mode |
 | 2026-08-08 | [visual-proof-for-changes](2026-08-08-visual-proof-for-changes/spec.md) | Draft | ⚠️ Experimental — Mandatory visual proof section in Pull Requests for UI and styling changes |
 | 2026-08-09 | [automated-versioning](2026-08-09-automated-versioning/spec.md) | Draft | Fully automatic Conventional-Commits-driven version bumping for `.claude-plugin/plugin.json` on merge to `main` |
+| 2026-08-09 | [roadmap-visualization](2026-08-09-roadmap-visualization/spec.md) | Done | On-demand, presentation-quality Artifact timeline of a project's spec history |
