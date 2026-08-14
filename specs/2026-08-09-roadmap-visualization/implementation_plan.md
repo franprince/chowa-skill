@@ -1,7 +1,7 @@
 # Implementation Plan: Roadmap Visualization Capability
 
 - **Date**: 2026-08-09
-- **Status**: Draft
+- **Status**: Done
 - **Slug**: `roadmap-visualization`
 
 ## Proposed Changes
