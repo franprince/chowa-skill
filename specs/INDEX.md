@@ -32,3 +32,4 @@ Chōwa's spec → plan → execute pipeline persists every iteration's `spec.md`
 | 2026-08-09 | [automated-versioning](2026-08-09-automated-versioning/spec.md) | Done | Fully automatic Conventional-Commits-driven version bumping for `.claude-plugin/plugin.json` on merge to `main` |
 | 2026-08-09 | [roadmap-visualization](2026-08-09-roadmap-visualization/spec.md) | Done | On-demand, presentation-quality Artifact timeline of a project's spec history |
 | 2026-08-13 | [speckit-inspired-stages](2026-08-13-speckit-inspired-stages/spec.md) | Draft | Constitution, Clarify, Tasks, and Analyze stages added natively to the spec pipeline (spec-kit inspired, no CLI adopted) |
+| 2026-08-14 | [storybook-visual-proof-tool](2026-08-14-storybook-visual-proof-tool/spec.md) | Draft | Automated Before & After Storybook screenshot comparison tool for PR visual proof |

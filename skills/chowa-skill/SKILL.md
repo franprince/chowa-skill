@@ -219,7 +219,25 @@ write `N/A (non-visual change)` in that section instead of omitting it.
 <test & quality gate results>
 ```
 
-### 9. Roadmap Visualization
+### 9. Storybook Before/After Visual Proof (On-Request)
+
+When the user explicitly asks for visual proof of a Storybook-backed UI
+change — not automatically, and not implied merely by a diff touching
+styling files — run:
+
+```bash
+node scripts/storybook-proof.mjs --base <base-ref>
+```
+
+Requires the target project to already have Storybook and Playwright
+configured; the script exits with a clear message if either is missing
+rather than attempting to install them. It captures "before" screenshots
+from a temporary worktree at `<base-ref>` and "after" screenshots from
+the current working tree, for the stories belonging to components the
+diff actually touched, and prints a ready-to-paste Markdown before/after
+table for the `### Visual Proof` PR section.
+
+### 10. Roadmap Visualization
 
 **Trigger**: the user asks to see or visualize the roadmap, or to present
 the project's development history.
@@ -248,7 +266,7 @@ opened in the system default browser (`xdg-open`/`open`/`start`,
 depending on OS). Report the local file path back to the user. This stays
 entirely local: no upload, no network call, no claude.ai dependency.
 
-### 10. ASD-STE100 Simplified Technical English Mode (Conversation Only)
+### 11. ASD-STE100 Simplified Technical English Mode (Conversation Only)
 
 When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:
 
