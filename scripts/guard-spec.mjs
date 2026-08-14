@@ -3,9 +3,9 @@
  * Spec protection (PreToolUse hook)
  *
  * Prevents agents from creating or modifying loose root-level spec files
- * (`spec.md` or `implementation_plan.md`). Enforces that specs must live
- * inside dedicated feature directories under `specs/<YYYY-MM-DD>-<slug>/`
- * and be recorded in `specs/INDEX.md`.
+ * (`spec.md`, `implementation_plan.md`, or `tasks.md`). Enforces that specs
+ * must live inside dedicated feature directories under
+ * `specs/<YYYY-MM-DD>-<slug>/` and be recorded in `specs/INDEX.md`.
  *
  * Iterating on specs is supported by editing files inside `specs/<YYYY-MM-DD>-<slug>/`.
  */
@@ -27,7 +27,7 @@ export function isRootSpecPath(targetPath, cwd = process.cwd()) {
 
   // Normalizes paths like `spec.md` or `./spec.md` to `spec.md`
   const lower = relativeTarget.toLowerCase();
-  return lower === 'spec.md' || lower === 'implementation_plan.md';
+  return lower === 'spec.md' || lower === 'implementation_plan.md' || lower === 'tasks.md';
 }
 
 /**
@@ -77,7 +77,7 @@ export function decide(toolName, toolInput, cwd = process.cwd()) {
       blocked: true,
       reason:
         `Creating or editing root-level \`${filePath}\` is prohibited to prevent overwriting past specs. ` +
-        `Save feature specs in \`specs/<YYYY-MM-DD>-<slug>/spec.md\` and record them in \`specs/INDEX.md\`.`,
+        `Save feature specs in \`specs/<YYYY-MM-DD>-<slug>/\` (spec.md, implementation_plan.md, tasks.md) and record them in \`specs/INDEX.md\`.`,
     };
   }
 
@@ -90,7 +90,7 @@ export function decide(toolName, toolInput, cwd = process.cwd()) {
           blocked: true,
           reason:
             `Command \`${segment}\` targets a root-level spec file. Root-level specs are prohibited. ` +
-            `Save feature specs in \`specs/<YYYY-MM-DD>-<slug>/spec.md\` and record them in \`specs/INDEX.md\`.`,
+            `Save feature specs in \`specs/<YYYY-MM-DD>-<slug>/\` (spec.md, implementation_plan.md, tasks.md) and record them in \`specs/INDEX.md\`.`,
         };
       }
     }

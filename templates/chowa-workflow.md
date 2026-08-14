@@ -69,24 +69,51 @@ Check before applying anything below:
 
 For all feature requests and non-trivial changes, follow this lifecycle:
 
-1. **Stage 0: Backlog Breakdown (`specs/BACKLOG.md`)** — for complex tasks
+1. **Constitution Check (`specs/CONSTITUTION.md`)** — if this is the
+   project's first spec and `specs/CONSTITUTION.md` doesn't exist, offer
+   to draft one collaboratively with the user (domain principles,
+   non-negotiables, style conventions) before Stage 1. Decline is fine —
+   this step never blocks the pipeline. If it exists, Stage 1 drafting
+   must read it and stay consistent with it; a spec that would conflict
+   with the constitution gets flagged to the user rather than silently
+   drafted around it. Lives once per project, not per-feature — updated
+   in place when principles change, with the change called out to the
+   user since it affects every future spec.
+2. **Stage 0: Backlog Breakdown (`specs/BACKLOG.md`)** — for complex tasks
    spanning multiple modules, dependent phases, or multiple PRs, create
    `specs/BACKLOG.md` first to outline epic milestones, sub-tasks, and
    execution order before breaking individual tasks into specs.
-2. **Stage 1: Specification (`spec.md`)** — problem statement, goals,
+3. **Stage 1: Specification (`spec.md`)** — problem statement, goals,
    non-goals, input/output schemas, edge cases, and acceptance criteria.
+   Before requesting approval, run a clarification pass over the draft:
+   scan it for ambiguous or underspecified requirements — vague
+   acceptance criteria, unstated edge-case behavior, conflicting goals —
+   and resolve them with the user (`AskUserQuestion` for discrete
+   choices, plain questions otherwise), updating the draft accordingly.
    Get explicit user approval before Stage 2.
-3. **Stage 2: Implementation Plan (`implementation_plan.md`)** — files to
-   modify/create, component boundaries, test plan. Get explicit user
-   approval before writing code.
-4. **Persistence** — write both files to `specs/<YYYY-MM-DD>-<slug>/`,
-   never as loose root-level files, and add a row to `specs/INDEX.md`
-   (create that layout if the project doesn't have one yet). Root-level
-   `spec.md`/`implementation_plan.md` get overwritten by the next feature's
-   docs with no record of what was approved — that's how intent drifts
-   across iterations.
-5. **Stage 3: Execution & Verification** — implement the approved plan
-   (code + tests), then verify with the project's own quality gates (see
+4. **Stage 2: Implementation Plan (`implementation_plan.md`)** — files to
+   modify/create, component boundaries, test plan. Once approved, break
+   it into a persisted `tasks.md` — a checklist of discrete,
+   independently-completable work items, each stated concretely enough to
+   hand to delegation or execute directly. Get explicit user approval
+   before writing code.
+5. **Persistence** — write `spec.md`, `implementation_plan.md`, and
+   `tasks.md` to `specs/<YYYY-MM-DD>-<slug>/`, never as loose root-level
+   files, and add a row to `specs/INDEX.md` (create that layout if the
+   project doesn't have one yet). Root-level files get overwritten by the
+   next feature's docs with no record of what was approved — that's how
+   intent drifts across iterations.
+6. **Analyze** — cross-check `spec.md`'s goals/acceptance criteria against
+   `implementation_plan.md`'s (and `tasks.md`'s) coverage: every goal
+   traceable to at least one plan component/task, no plan component
+   without a goal it serves. Report findings to the user rather than
+   silently resolving them — they decide whether to revise or proceed.
+   Skippable at the same judgment threshold as Stage 0 (a small, obvious
+   change doesn't need a formal pass).
+7. **Stage 3: Execution & Verification** — implement the approved plan
+   (code + tests), mirroring `tasks.md`'s items into ephemeral
+   `TaskCreate` entries for in-session tracking (`tasks.md` stays the
+   durable record), then verify with the project's own quality gates (see
    the Code Quality & Build Verification section below). Always ask the
    user if they want a Pull Request opened after committing on a new
    feature branch.
