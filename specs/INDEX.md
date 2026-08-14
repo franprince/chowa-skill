@@ -31,3 +31,4 @@ Chōwa's spec → plan → execute pipeline persists every iteration's `spec.md`
 | 2026-08-08 | [visual-proof-for-changes](2026-08-08-visual-proof-for-changes/spec.md) | Draft | ⚠️ Experimental — Mandatory visual proof section in Pull Requests for UI and styling changes |
 | 2026-08-09 | [automated-versioning](2026-08-09-automated-versioning/spec.md) | Done | Fully automatic Conventional-Commits-driven version bumping for `.claude-plugin/plugin.json` on merge to `main` |
 | 2026-08-09 | [roadmap-visualization](2026-08-09-roadmap-visualization/spec.md) | Done | On-demand, presentation-quality Artifact timeline of a project's spec history |
+| 2026-08-13 | [speckit-inspired-stages](2026-08-13-speckit-inspired-stages/spec.md) | Draft | Constitution, Clarify, Tasks, and Analyze stages added natively to the spec pipeline (spec-kit inspired, no CLI adopted) |
