@@ -75,13 +75,13 @@ test('generated skill requires a Visual Proof section in PR descriptions', () =>
   assert.match(rendered, /N\/A \(non-visual change\)/);
 });
 
-test('generated skill documents Roadmap Visualization via Artifact and artifact-design', () => {
+test('generated skill documents Roadmap Visualization as a local, self-contained HTML file', () => {
   const template = readFileSync(TEMPLATE, 'utf-8');
   const rendered = renderTemplate(template);
 
   assert.match(rendered, /### \d+\. Roadmap Visualization/);
-  assert.match(rendered, /Artifact/);
-  assert.match(rendered, /artifact-design/);
+  assert.match(rendered, /self-contained HTML file/);
+  assert.match(rendered, /no upload, no network call/);
 });
 
 test('throws on an unrecognized variant tag', () => {

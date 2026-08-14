@@ -19,8 +19,9 @@ raw table by hand.
 1. **On-demand roadmap visualization** — when asked to visualize the
    roadmap or present a project's development history, Claude reads
    `specs/INDEX.md` (and, by default, each referenced `spec.md`) and
-   produces a visually polished, self-contained HTML presentation via the
-   `Artifact` tool.
+   writes a visually polished, self-contained HTML presentation to a
+   local file, then opens it in the system default browser. Entirely
+   local: no upload, no network call, no dependency on claude.ai.
 2. **Chronological timeline layout** — entries ordered by date, each
    tagged/color-coded by status (`Draft`, `Approved`, `In Progress`,
    `Done`, `Dismissed`, `Superseded by <link>`), with an experimental
@@ -40,19 +41,22 @@ raw table by hand.
    for the rich-mode narrative text, so the presentation reads well both
    collapsed (skimmable) and expanded (detailed).
 5. **Real visual design effort**: this is explicitly meant to be
-   presentation-quality, not a plain list — building it MUST go through
-   the `artifact-design` skill first, per that skill's own requirement for
-   any Artifact publish.
+   presentation-quality, not a plain list — the same rigor as any polished
+   deliverable: a considered palette, paired typefaces, deliberate layout.
 6. **No new persisted/committed script**: unlike `generate-skill.mjs` or
    `bump-version.mjs`, there is no static computation here worth unit
    testing standalone — the capability is Claude reading files and
-   composing an Artifact on request, documented as workflow guidance.
+   composing a local HTML file on request, documented as workflow
+   guidance.
 
 ## Non-Goals
 
-- A committed, versioned HTML file living in the repo — the artifact is a
-  live view of whatever `specs/INDEX.md` looks like when asked for, not a
-  build output kept in sync.
+- A committed, versioned HTML file living in the repo — the generated
+  file is a live view of whatever `specs/INDEX.md` looks like when asked
+  for, written to a local scratch path, never `specs/`, never committed.
+- Publishing via any hosted/cloud mechanism (e.g. the `Artifact` tool) —
+  this capability is 100% local: no upload, no network call, no
+  claude.ai dependency.
 - A `chowa roadmap` CLI subcommand — that would require changes to the
   separate CLI-backed `chowa` engine repository, out of scope here.
 - Aggregating roadmaps across multiple projects/repos — this reads one
@@ -66,8 +70,9 @@ raw table by hand.
 ### 1. Workflow Template (`templates/chowa-workflow.md`)
 
 Add a new `<!-- variant:shared -->` section (works identically for CLI
-and skill modes — it only needs `Read` and `Artifact`, no CLI command) titled
-`### Roadmap Visualization`, documenting:
+and skill modes — it only needs `Read`, `Write`, and a shell command to
+open the file, no CLI command) titled `### Roadmap Visualization`,
+documenting:
 
 - **Trigger**: user asks to see/visualize the roadmap, or present the
   project's development history.
@@ -75,13 +80,16 @@ and skill modes — it only needs `Read` and `Artifact`, no CLI command) titled
   read each referenced `spec.md`'s Problem Statement/Goals); switch to
   lean automatically above 20 entries, or immediately if the user asked
   for something quick; ask if ambiguous.
-- **Before building**: load the `artifact-design` skill for visual
-  calibration, per that skill's own requirement.
+- **Before building**: give the page real visual design effort — a
+  considered palette, paired typefaces, deliberate layout.
 - **Layout**: chronological timeline, status color-coding, ⚠️ experimental
   marker from a spec's `Stability` field when present, status filter,
   per-entry expand/collapse in rich mode.
-- **Output**: publish via the `Artifact` tool and hand back the link —
-  don't commit the generated file to the repo.
+- **Output**: a fully self-contained HTML file (inline CSS/JS, no
+  external requests, both light and dark themes handled via
+  `prefers-color-scheme`) written to a local scratch path, then opened in
+  the system default browser (`xdg-open`/`open`/`start`). Report the
+  local file path back to the user.
 
 ### 2. Skill Re-generation
 
@@ -92,20 +100,20 @@ Rebuild `skills/chowa-skill/SKILL.md` via
 
 `tests/generate-skill.test.mjs` gets a new assertion that the rendered
 template contains the `### Roadmap Visualization` heading and references
-to both `Artifact` and `artifact-design`, matching the existing pattern
-used for the Visual Proof section.
+to a self-contained local HTML file with no upload/network call, matching
+the existing pattern used for the Visual Proof section.
 
 ## Acceptance Criteria
 
 1. `templates/chowa-workflow.md` has a `### Roadmap Visualization` shared
-   section covering trigger, data gathering (rich/lean), the
-   `artifact-design` skill load, layout, and output requirements above.
+   section covering trigger, data gathering (rich/lean), visual design
+   effort, layout, and local-file output requirements above.
 2. `skills/chowa-skill/SKILL.md` regenerated and matches the template
    render (`node scripts/generate-skill.mjs --check` passes).
 3. `tests/generate-skill.test.mjs` updated with a passing assertion for
    the new section.
 4. `specs/INDEX.md` has a row for this spec.
-5. As verification (not committed), Claude actually builds one roadmap
-   Artifact against this repo's own `specs/INDEX.md` to confirm the
-   capability produces a real, well-designed result — not just that the
-   instructional text exists.
+5. As verification (not committed), Claude actually writes one roadmap
+   HTML file against this repo's own `specs/INDEX.md` and opens it
+   locally to confirm the capability produces a real, well-designed
+   result — not just that the instructional text exists.

@@ -301,8 +301,9 @@ than 20 entries (use only the `Date | Slug | Status | Summary` row, no
 per-spec reads), or immediately if the user asked for something quick. Ask
 directly whenever which mode is wanted is ambiguous.
 
-**Before building**: load the `artifact-design` skill for visual
-calibration — required before any `Artifact` publish.
+**Before building**: give the page real visual design effort — a
+considered palette, paired typefaces, and deliberate layout — the same
+rigor as any presentation-quality deliverable. Not a plain list.
 
 **Layout**: a chronological timeline ordered by date, with each entry
 color-coded by status (`Draft`, `Approved`, `In Progress`, `Done`,
@@ -310,9 +311,12 @@ color-coded by status (`Draft`, `Approved`, `In Progress`, `Done`,
 from a spec's own `Stability` field when present, a status filter, and
 per-entry expand/collapse for the rich-mode narrative text.
 
-**Output**: publish via the `Artifact` tool and hand back the link. Never
-commit the generated HTML to the repo — it is a live view of whatever
-`specs/INDEX.md` looks like when asked for, not a build output.
+**Output**: a fully self-contained HTML file (inline CSS/JS, no external
+requests, both light and dark themes handled via `prefers-color-scheme`)
+written to a local scratch path — never `specs/`, never committed — then
+opened in the system default browser (`xdg-open`/`open`/`start`,
+depending on OS). Report the local file path back to the user. This stays
+entirely local: no upload, no network call, no claude.ai dependency.
 <!-- variant:end -->
 
 <!-- variant:shared -->

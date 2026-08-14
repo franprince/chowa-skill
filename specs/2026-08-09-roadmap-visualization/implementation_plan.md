@@ -19,19 +19,24 @@ Visualization`, placed after the existing `### PR Description Generation`
   switch to lean mode automatically once the index has more than 20
   entries, or immediately if the user asked for something quick; ask
   directly whenever the mode is ambiguous.
-- **Before building**: load the `artifact-design` skill for visual
-  calibration — required before any Artifact publish.
+- **Before building**: give the page real visual design effort — a
+  considered palette, paired typefaces, deliberate layout.
 - **Layout**: chronological timeline ordered by date, status color-coding
   (`Draft`, `Approved`, `In Progress`, `Done`, `Dismissed`, `Superseded by
   <link>`), a ⚠️ experimental marker surfaced from a spec's own
   `Stability` field when present, a status filter, and per-entry
   expand/collapse for the rich-mode narrative text.
-- **Output**: publish via the `Artifact` tool and hand back the link — the
+- **Output**: a fully self-contained HTML file (inline CSS/JS, no
+  external requests, light/dark via `prefers-color-scheme`) written to a
+  local scratch path and opened in the system default browser
+  (`xdg-open`/`open`/`start`). The path is reported back to the user; the
   generated HTML is never committed to the repo.
 
 This is a `variant:shared` block (not `chowa-only`/`chowa-skill-only`)
-because it needs only `Read` and `Artifact`, identical in both CLI and
-skill modes — matching how the Visual Proof section is structured.
+because it needs only `Read`, `Write`, and a shell command, identical in
+both CLI and skill modes — matching how the Visual Proof section is
+structured. It does not use the `Artifact` tool: the capability is
+required to be 100% local, with no upload or network dependency.
 
 ### 2. Skill Regeneration
 
@@ -46,13 +51,13 @@ Add one test, following the existing `'generated skill requires a Visual
 Proof section...'` pattern:
 
 ```js
-test('generated skill documents Roadmap Visualization via Artifact and artifact-design', () => {
+test('generated skill documents Roadmap Visualization as a local, self-contained HTML file', () => {
   const template = readFileSync(TEMPLATE, 'utf-8');
   const rendered = renderTemplate(template);
 
   assert.match(rendered, /### \d+\. Roadmap Visualization/);
-  assert.match(rendered, /Artifact/);
-  assert.match(rendered, /artifact-design/);
+  assert.match(rendered, /self-contained HTML file/);
+  assert.match(rendered, /no upload, no network call/);
 });
 ```
 
@@ -78,8 +83,8 @@ the workflow template Claude reads at runtime.
 
 ### Manual Verification
 
-- Build one roadmap Artifact against this repo's own `specs/INDEX.md`
-  (rich mode, since the index has well under 20 entries) to confirm the
-  capability produces a real, well-designed, chronological, color-coded,
-  filterable timeline — not just that the instructional text exists. This
-  artifact is verification output, not a deliverable to commit.
+- Write one roadmap HTML file against this repo's own `specs/INDEX.md`
+  (rich mode, since the index has well under 20 entries), open it
+  locally, and confirm it's a real, well-designed, chronological,
+  color-coded, filterable timeline — not just that the instructional text
+  exists. This file is verification output, not a deliverable to commit.
