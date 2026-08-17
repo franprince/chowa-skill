@@ -75,3 +75,41 @@ test('decide blocks a protected branch anywhere in a chained command', () => {
 test('decide asks rather than denies, so the user can still approve', () => {
   assert.equal(decide('git push origin main', () => 'feat/x').decision, 'ask');
 });
+
+test('decide catches merges, which never invoke git push at all', () => {
+  // The hole this closes: an agent can branch, PR, wait for green CI, and
+  // merge its own pull request without a single `git push` to a protected
+  // branch.
+  for (const command of [
+    'gh pr merge 11 --squash',
+    'gh pr merge --auto --squash',
+    'gh pr merge',
+    'gh api repos/o/r/pulls/11/merge -X PUT',
+    'gh api --method PUT repos/o/r/pulls/11/merge',
+    'gh api repos/o/r/merges -f base=main -f head=feat/x',
+  ]) {
+    const result = decide(command, () => 'feat/x');
+    assert.equal(result.blocked, true, command);
+    assert.equal(result.decision, 'ask', command);
+    assert.match(result.reason, /Landing code is the human's decision/, command);
+  }
+});
+
+test('decide catches a local merge while a protected branch is checked out', () => {
+  assert.equal(decide('git merge feat/x', () => 'main').blocked, true);
+  assert.equal(decide('git -C /repo merge feat/x', () => 'master').blocked, true);
+  assert.equal(decide('git merge develop', () => 'feat/x').blocked, false);
+});
+
+test('decide leaves non-landing gh and git commands alone', () => {
+  for (const command of [
+    'gh pr create --base main',
+    'gh pr view 11 --json mergeable,mergeStateStatus',
+    'gh pr checks 11',
+    'gh api repos/o/r/pulls/11',
+    'git merge-base main HEAD',
+    'echo "gh pr merge 11"',
+  ]) {
+    assert.equal(decide(command, () => 'feat/x').blocked, false, command);
+  }
+});
