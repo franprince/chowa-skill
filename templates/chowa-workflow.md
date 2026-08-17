@@ -206,13 +206,20 @@ Workflow rules guide model turns; hooks enforce the two rules that must
 not depend on a model reading prose. Both run before tool execution,
 through one dispatcher (`scripts/guard.mjs`):
 
-1. **Push Protection Guard (`guard-push.mjs`)** — inspects `git push`
-   command lines and stops pushes (and deletes) whose *destination* is
-   `main`/`master`, while leaving the `release/*` → `main` flow alone. It
-   **asks** rather than denies where the harness can route a decision to
-   the user, because a repository's own first push is legitimate and the
-   human should be the one to say so. Applies in every project: it
-   encodes no Chōwa-specific convention.
+1. **Push Protection Guard (`guard-push.mjs`)** — stops code landing on a
+   branch without a human saying so. That covers pushes (and deletes)
+   whose *destination* is `main`/`master`, leaving the `release/*` →
+   `main` flow alone, and it covers **merges**, which never invoke
+   `git push` at all: `gh pr merge`, the equivalent `gh api .../merge`
+   call, and `git merge` while a protected branch is checked out.
+   Opening the PR and reporting it green is where the agent's job ends;
+   merging is the human's decision. Merges ask regardless of destination
+   rather than resolving the base over the network — `gh pr merge` with
+   no arguments merges the current branch's PR, and a hook that made an
+   API call would put that latency on every shell command and fail open
+   whenever it failed. It **asks** rather than denies where the harness
+   can route a decision to the user. Applies in every project: it encodes
+   no Chōwa-specific convention.
 2. **Spec Location Guard (`guard-spec.mjs`)** — stops root-level
    `spec.md`, `implementation_plan.md`, and `tasks.md` from being created
    or edited, so specs persist under `specs/<YYYY-MM-DD>-<slug>/`. It

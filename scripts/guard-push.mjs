@@ -75,13 +75,16 @@ function destinationRef(refspec) {
   return destination.replace(/^refs\/heads\//, '');
 }
 
-/** Is this segment a `git push`? Tolerates leading env assignments and paths. */
-function isGitPush(tokens) {
+/**
+ * The subcommand of a `git` invocation, or `undefined` if this isn't one.
+ * Tolerates leading env assignments and absolute paths to the binary.
+ */
+function gitSubcommand(tokens) {
   const gitIndex = tokens.findIndex((token) => token === 'git' || token.endsWith('/git'));
-  if (gitIndex === -1) return false;
+  if (gitIndex === -1) return undefined;
 
   // The first token after `git` that is neither a global flag nor a global
-  // flag's value should be `push`.
+  // flag's value is the subcommand.
   for (let i = gitIndex + 1; i < tokens.length; i += 1) {
     const token = tokens[i];
     if (GIT_VALUE_FLAGS.has(token)) {
@@ -89,9 +92,57 @@ function isGitPush(tokens) {
       continue;
     }
     if (token.startsWith('-')) continue;
-    return token === 'push';
+    return token;
   }
-  return false;
+  return undefined;
+}
+
+/** The subcommand chain of a `gh` invocation, e.g. `['pr', 'merge']`. */
+function ghSubcommands(tokens) {
+  const ghIndex = tokens.findIndex((token) => token === 'gh' || token.endsWith('/gh'));
+  if (ghIndex === -1) return [];
+  return tokens.slice(ghIndex + 1).filter((token) => !token.startsWith('-'));
+}
+
+/**
+ * Does this segment land code on a branch without going through `git push`?
+ *
+ * The push guard originally read `git push` and nothing else, which left the
+ * obvious hole: `gh pr merge` lands a branch on `main` and never invokes
+ * `git` at all. An agent following the workflow to the letter — branch, PR,
+ * green CI — could still merge its own pull request unattended.
+ *
+ * Merging is the moment code becomes everyone's problem, so it asks
+ * regardless of destination rather than trying to resolve the base branch:
+ * `gh pr merge` with no arguments merges the current branch's PR, whose base
+ * is only knowable from the network. A hook that made an API call would add
+ * that latency to every shell command the agent runs, and would fail open
+ * whenever the call failed — the wrong trade for the one action here that
+ * cannot be undone by a subsequent commit.
+ */
+function landsCode(tokens, resolveBranch) {
+  const gh = ghSubcommands(tokens);
+
+  if (gh[0] === 'pr' && gh[1] === 'merge') {
+    return 'merges a pull request';
+  }
+
+  // The REST equivalent: `gh api repos/o/r/pulls/1/merge -X PUT`, and the
+  // branch-merge endpoint `repos/o/r/merges`.
+  if (gh[0] === 'api' && gh.some((argument) => /\/(?:merge|merges)\b/.test(argument))) {
+    return 'merges through the GitHub API';
+  }
+
+  // A local merge while sitting on a protected branch moves it immediately;
+  // catching it here reports the real action rather than the later push.
+  if (gitSubcommand(tokens) === 'merge') {
+    const branch = resolveBranch();
+    if (branch && PROTECTED_BRANCHES.has(branch)) {
+      return `merges into \`${branch}\`, which is checked out`;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -101,13 +152,20 @@ function isGitPush(tokens) {
  * repository; it returns the current branch name or `undefined`.
  */
 export function decide(command, resolveBranch) {
-  if (typeof command !== 'string' || !command.includes('push')) {
+  if (typeof command !== 'string') return { blocked: false };
+  if (!command.includes('push') && !command.includes('merge')) {
     return { blocked: false };
   }
 
   for (const segment of splitSegments(command)) {
     const tokens = words(segment.tokens);
-    if (!isGitPush(tokens)) continue;
+
+    const landing = landsCode(tokens, resolveBranch);
+    if (landing) {
+      return block(`\`${segment.text}\` ${landing}.`, MERGE_GUIDANCE);
+    }
+
+    if (gitSubcommand(tokens) !== 'push') continue;
 
     const pushIndex = tokens.indexOf('push');
     const rest = tokens.slice(pushIndex + 1);
@@ -174,8 +232,12 @@ const GUIDANCE =
   'Never push directly to main/master. Branch (feat/*, fix/*, docs/*, ' +
   'chore/*) and PR into develop; only release/* and hotfix/* PR into main.';
 
-function block(reason) {
-  return { blocked: true, decision: 'ask', reason: `${reason} ${GUIDANCE}` };
+const MERGE_GUIDANCE =
+  'Landing code is the human\'s decision, not the agent\'s — opening the PR ' +
+  'and reporting it green is where the agent\'s job ends. Ask before merging.';
+
+function block(reason, guidance = GUIDANCE) {
+  return { blocked: true, decision: 'ask', reason: `${reason} ${guidance}` };
 }
 
 function currentBranchIn(cwd) {
