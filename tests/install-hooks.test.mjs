@@ -5,14 +5,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HARNESSES, install, loadSnippet, mergeHooks } from '../scripts/install-hooks.mjs';
 
+/** The definitions a snippet carries, whichever shape the harness uses. */
+function definitionsOf(snippet, harness) {
+  return harness.hookName ? snippet[harness.hookName][harness.event] : snippet.hooks[harness.event];
+}
+
 test('every supported harness ships a snippet for its own event', () => {
   for (const [name, harness] of Object.entries(HARNESSES)) {
-    const snippet = loadSnippet(harness.snippet, '/opt/chowa');
-    const definitions = snippet.hooks[harness.event];
+    const definitions = definitionsOf(loadSnippet(harness.snippet, '/opt/chowa'), harness);
     assert.ok(Array.isArray(definitions) && definitions.length > 0, name);
     assert.match(definitions[0].hooks[0].command, /guard\.mjs/, name);
-    assert.match(definitions[0].hooks[0].command, /--harness/, name);
+    assert.match(definitions[0].hooks[0].command, new RegExp(`--harness ${name}`), name);
   }
+});
+
+test('the antigravity snippet uses its top-level named shape', () => {
+  const snippet = loadSnippet(HARNESSES.antigravity.snippet, '/opt/chowa');
+  assert.equal(snippet.hooks, undefined);
+  assert.ok(Array.isArray(snippet['chowa-guards'].PreToolUse));
+  assert.match(
+    snippet['chowa-guards'].PreToolUse[0].matcher,
+    /run_command\|write_to_file\|replace_file_content/,
+  );
 });
 
 test('loadSnippet substitutes the checkout path into the command', () => {
@@ -37,16 +51,16 @@ test('mergeHooks keeps hooks that belong to someone else', () => {
   };
   const snippet = loadSnippet(HARNESSES.claude.snippet, '/opt/chowa');
 
-  const merged = mergeHooks(existing, snippet, 'PreToolUse');
+  const merged = mergeHooks(existing, snippet, HARNESSES.claude);
   assert.equal(merged.hooks.PreToolUse.length, 2);
   assert.equal(merged.hooks.PreToolUse[0].hooks[0].command, 'their-linter');
 });
 
 test('mergeHooks replaces our own entry instead of stacking duplicates', () => {
   const snippet = loadSnippet(HARNESSES.claude.snippet, '/opt/chowa');
-  const once = mergeHooks({}, snippet, 'PreToolUse');
-  const twice = mergeHooks(once, snippet, 'PreToolUse');
-  const thrice = mergeHooks(twice, loadSnippet(HARNESSES.claude.snippet, '/new/path'), 'PreToolUse');
+  const once = mergeHooks({}, snippet, HARNESSES.claude);
+  const twice = mergeHooks(once, snippet, HARNESSES.claude);
+  const thrice = mergeHooks(twice, loadSnippet(HARNESSES.claude.snippet, '/new/path'), HARNESSES.claude);
 
   assert.equal(once.hooks.PreToolUse.length, 1);
   assert.deepEqual(twice, once);
@@ -57,7 +71,7 @@ test('mergeHooks replaces our own entry instead of stacking duplicates', () => {
 test('mergeHooks does not mutate the configuration it was given', () => {
   const existing = { hooks: { PreToolUse: [] }, otherSetting: true };
   const before = JSON.stringify(existing);
-  mergeHooks(existing, loadSnippet(HARNESSES.claude.snippet, '/opt/chowa'), 'PreToolUse');
+  mergeHooks(existing, loadSnippet(HARNESSES.claude.snippet, '/opt/chowa'), HARNESSES.claude);
   assert.equal(JSON.stringify(existing), before);
 });
 
@@ -65,7 +79,7 @@ test('mergeHooks preserves unrelated settings in the file', () => {
   const merged = mergeHooks(
     { theme: 'dark', hooks: { SessionStart: [{ matcher: '*', hooks: [] }] } },
     loadSnippet(HARNESSES.gemini.snippet, '/opt/chowa'),
-    'BeforeTool',
+    HARNESSES.gemini,
   );
   assert.equal(merged.theme, 'dark');
   assert.equal(merged.hooks.SessionStart.length, 1);
@@ -108,4 +122,26 @@ test('install refuses a configuration file it cannot parse', () => {
 
 test('install rejects an unknown harness by name', () => {
   assert.throws(() => install('emacs'), /Unknown harness "emacs"/);
+});
+
+test('installing for antigravity writes its named entry to .agents/hooks.json', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'chowa-install-'));
+  const first = install('antigravity', { scope: 'project', cwd });
+
+  assert.equal(first.configPath, join(cwd, '.agents', 'hooks.json'));
+  const written = JSON.parse(readFileSync(first.configPath, 'utf-8'));
+  assert.ok(Array.isArray(written['chowa-guards'].PreToolUse));
+
+  assert.equal(install('antigravity', { scope: 'project', cwd }).changed, false);
+});
+
+test('the antigravity merge leaves other named hooks alone', () => {
+  const merged = mergeHooks(
+    { 'their-linter': { PostToolUse: [{ matcher: '*', hooks: [] }] } },
+    loadSnippet(HARNESSES.antigravity.snippet, '/opt/chowa'),
+    HARNESSES.antigravity,
+  );
+
+  assert.ok(merged['their-linter'].PostToolUse);
+  assert.ok(merged['chowa-guards'].PreToolUse);
 });

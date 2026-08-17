@@ -200,6 +200,42 @@ test('codex never receives ask, since it cannot route one to the user', () => {
   assert.equal(JSON.parse(stdout).hookSpecificOutput.permissionDecision, 'deny');
 });
 
+test('antigravity payloads decide, and it is the one other harness that can ask', () => {
+  const cwd = optedInProject();
+
+  const write = runGuard(
+    {
+      toolCall: { name: 'write_to_file', args: { TargetFile: 'spec.md', CodeContent: '# Spec' } },
+      workspacePaths: [cwd],
+    },
+    { args: ['--harness', 'antigravity'] },
+  );
+  assert.equal(JSON.parse(write.stdout).decision, 'deny');
+
+  const push = runGuard(
+    {
+      toolCall: { name: 'run_command', args: { CommandLine: 'git push origin main', Cwd: cwd } },
+      workspacePaths: [cwd],
+    },
+    { args: ['--harness', 'antigravity'] },
+  );
+  assert.equal(JSON.parse(push.stdout).decision, 'ask');
+});
+
+test('antigravity gets no decision at all when nothing is wrong', () => {
+  const cwd = optedInProject();
+  const { stdout, status } = runGuard(
+    {
+      toolCall: { name: 'run_command', args: { CommandLine: 'npm test', Cwd: cwd } },
+      workspacePaths: [cwd],
+    },
+    { args: ['--harness', 'antigravity'] },
+  );
+
+  assert.equal(status, 0);
+  assert.deepEqual(JSON.parse(stdout), {}); // never `{"decision":"allow"}`
+});
+
 test('an undeclared harness blocks via exit 2 and stderr', () => {
   const cwd = optedInProject();
   const { stderr, status } = runGuard({

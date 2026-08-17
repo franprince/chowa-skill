@@ -70,7 +70,7 @@ const STATIC_SUFFIX = `## What this skill intentionally does not do
 | Check a PR is actually mergeable | \`gh pr view <n> --json mergeable,mergeStateStatus\` |
 | PR description context | \`git log <base>..HEAD\`, \`git diff <base>...HEAD\` |
 | Personal always-on preference | \`~/.chowa-skill/preferences.json\` — \`{"alwaysOn": true}\` |
-| Install hooks into a harness | \`node scripts/install-hooks.mjs --harness <claude\\|gemini\\|codex>\` |
+| Install hooks into a harness | \`node scripts/install-hooks.mjs --harness <claude\\|gemini\\|codex\\|antigravity>\` |
 | Turn the hook guards off | \`CHOWA_GUARDS=off\` in the environment |
 `;
 

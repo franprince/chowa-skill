@@ -34,7 +34,7 @@ drives every step through the harness's own native tools instead of a
 bundled engine. There is nothing to install, build, or version beyond this
 file and the two small pieces that ship alongside it (a subagent for
 mechanical delegation, and pre-tool-use guards that run under Claude
-Code, Gemini CLI, and Codex alike). If a project wants the
+Code, Gemini CLI, Codex, and Antigravity alike). If a project wants the
 CLI-backed feature set this variant intentionally leaves out — model
 routing against live provider data, quota-aware session auto-resume — that
 lives in the sibling project instead of here.
@@ -223,26 +223,32 @@ through one dispatcher (`scripts/guard.mjs`):
    for the cases neither decision covers (bootstrapping a repository,
    unattended runs).
 
-Hooks are supported on **Claude Code**, **Gemini CLI**, and **Codex
-(ChatGPT)**. Each harness names the event, the tools, and the deny schema
-differently; the guards decide once against a normalized request and the
-verdict is rendered per harness:
+Hooks are supported on **Claude Code**, **Gemini CLI**, **Codex
+(ChatGPT)**, and **Antigravity**. Each names the event, the tools, the
+payload, and the deny schema differently; the guards decide once against
+a normalized request and the verdict is rendered per harness:
 
-| | Claude Code | Gemini CLI | Codex |
-|---|---|---|---|
-| Config | plugin `hooks/hooks.json`, or `.claude/settings.json` | `.gemini/settings.json` | `.codex/hooks.json` or `config.toml` |
-| Event | `PreToolUse` | `BeforeTool` | `PreToolUse` |
-| Tools matched | `Bash`, `Write`, `Edit`, `NotebookEdit` | `run_shell_command`, `write_file`, `replace` | `Bash`, `apply_patch` |
-| Can ask the user | yes | no | no |
+| | Claude Code | Gemini CLI | Codex | Antigravity |
+|---|---|---|---|---|
+| Config | plugin `hooks/hooks.json`, or `.claude/settings.json` | `.gemini/settings.json` | `.codex/hooks.json` or `config.toml` | `.agents/hooks.json`, or `~/.gemini/config/hooks.json` |
+| Event | `PreToolUse` | `BeforeTool` | `PreToolUse` | `PreToolUse` |
+| Tools matched | `Bash`, `Write`, `Edit`, `NotebookEdit` | `run_shell_command`, `write_file`, `replace` | `Bash`, `apply_patch` | `run_command`, `write_to_file`, `replace_file_content` |
+| Tool call shape | `tool_name` + `tool_input` | same | same | `toolCall.name` + `toolCall.args`, PascalCase |
+| Can ask the user | yes | no | no | yes |
 
 Install into a harness with
-`node scripts/install-hooks.mjs --harness <claude|gemini|codex>`
+`node scripts/install-hooks.mjs --harness <claude|gemini|codex|antigravity>`
 (`--scope project` for this repository only, `--dry-run` to preview).
-Claude Code needs no install step when this is used as a plugin. A
-harness that declares none of the above still blocks — every one of the
-three treats exit code 2 with a reason on `stderr` as a rejection, so an
-unrecognized harness degrades to a coarser message, never to a silent
-allow.
+Claude Code needs no install step when this is used as a plugin.
+
+A harness that declares none of the above still blocks: Claude Code,
+Gemini CLI, and Codex all treat exit code 2 with a reason on `stderr` as
+a rejection, so an unrecognized harness degrades to a coarser message,
+never to a silent allow. Antigravity doesn't document exit codes, which
+is why it is declared explicitly rather than left to that fallback — and
+why its no-opinion response is an empty object rather than
+`{"decision": "allow"}`, which would auto-approve calls the user would
+otherwise have been asked about.
 <!-- variant:end -->
 
 <!-- variant:chowa-skill-only -->
