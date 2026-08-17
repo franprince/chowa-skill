@@ -1,47 +1,64 @@
 /**
  * Harness dialects
  *
- * The same guard has to run under Claude Code, Gemini CLI, and Codex
- * (ChatGPT). All three run a command, hand it a JSON payload on stdin, and
- * read a verdict back — but they disagree on every detail in between:
+ * The same guard has to run under Claude Code, Gemini CLI, Codex (ChatGPT),
+ * and Antigravity. All four run a command, hand it a JSON payload on stdin,
+ * and read a verdict back — but they disagree on every detail in between:
  *
- * | | Claude Code | Gemini CLI | Codex |
- * |---|---|---|---|
- * | event | `PreToolUse` | `BeforeTool` | `PreToolUse` |
- * | shell tool | `Bash` | `run_shell_command` | `Bash`, `apply_patch` |
- * | write tools | `Write`, `Edit`, `NotebookEdit` | `write_file`, `replace` | *(none — via `apply_patch`)* |
- * | deny | `hookSpecificOutput.permissionDecision` | `{"decision":"deny"}` | as Claude |
- * | `ask` | yes | no | no |
+ * | | Claude Code | Gemini CLI | Codex | Antigravity |
+ * |---|---|---|---|---|
+ * | event | `PreToolUse` | `BeforeTool` | `PreToolUse` | `PreToolUse` |
+ * | shell tool | `Bash` | `run_shell_command` | `Bash`, `apply_patch` | `run_command` |
+ * | write tools | `Write`, `Edit`, `NotebookEdit` | `write_file`, `replace` | *(none — via `apply_patch`)* | `write_to_file`, `replace_file_content` |
+ * | tool call | `tool_name` + `tool_input` | same | same | `toolCall.name` + `toolCall.args` |
+ * | argument case | `snake_case` | `snake_case` | `snake_case` | `PascalCase` |
+ * | deny | `hookSpecificOutput.permissionDecision` | `{"decision":"deny"}` | as Claude | `{"decision":"deny"}` |
+ * | `ask` | yes | no | no | yes |
  *
  * This module absorbs all of that, so the guards themselves decide against
  * one normalized shape and never learn which harness they are running under.
  *
- * The one thing all three agree on is exit code 2 with the reason on stderr,
- * which is what `generic` falls back to. An unrecognized harness therefore
- * still blocks — the failure mode is a coarser message, never a silent
- * allow.
+ * Note that Gemini CLI and Antigravity both spell a denial `{"decision":
+ * "deny"}` and yet are not interchangeable: Antigravity nests the tool call,
+ * uses PascalCase arguments, and — unlike Gemini CLI — can prompt the user.
+ * Sharing a key is not sharing a dialect.
+ *
+ * Claude Code, Gemini CLI, and Codex all treat exit code 2 with the reason
+ * on stderr as a rejection, which is what `generic` falls back to. An
+ * unrecognized harness therefore still blocks — the failure mode is a
+ * coarser message, never a silent allow. Antigravity does not document exit
+ * codes, so it is worth declaring explicitly rather than relying on that.
  */
 
-/** Tools that run a shell command line, across all three harnesses. */
-const SHELL_TOOLS = new Set(['Bash', 'bash', 'shell', 'run_shell_command', 'apply_patch']);
+/** Tools that run a shell command line, across every supported harness. */
+const SHELL_TOOLS = new Set([
+  'Bash',
+  'bash',
+  'shell',
+  'run_shell_command', // Gemini CLI
+  'apply_patch', // Codex
+  'run_command', // Antigravity
+]);
 
-/** Tools that write a file directly, across all three harnesses. */
+/** Tools that write a file directly, across every supported harness. */
 const WRITE_TOOLS = new Set([
   'Write',
   'Edit',
   'MultiEdit',
   'NotebookEdit',
-  'write_file',
-  'replace',
+  'write_file', // Gemini CLI
+  'replace', // Gemini CLI
   'edit_file',
+  'write_to_file', // Antigravity
+  'replace_file_content', // Antigravity
+  'multi_replace_file_content', // Antigravity
 ]);
 
 /**
  * Keys under which a harness passes the file a write tool targets. Claude
- * uses `file_path` (and `notebook_path` for notebooks); Gemini uses
- * `file_path`; the rest cover harnesses this hasn't been tested against,
- * which cost nothing to accept and would otherwise read as an unguarded
- * write.
+ * uses `file_path` (and `notebook_path` for notebooks); Gemini CLI uses
+ * `file_path`; Antigravity uses PascalCase `TargetFile`. The remainder cost
+ * nothing to accept and would otherwise read as an unguarded write.
  */
 const PATH_KEYS = [
   'file_path',
@@ -110,6 +127,31 @@ export const DIALECTS = {
     render: (verdict) => renderPermissionDecision(verdict, { supportsAsk: false }),
   },
 
+  antigravity: {
+    id: 'antigravity',
+    event: 'PreToolUse',
+    supportsAsk: true,
+    render: (verdict) => {
+      // Deliberately *not* `{"decision":"allow"}`. Antigravity treats that
+      // as an automatic approval, so a guard with no opinion would silently
+      // wave through every tool call the user would otherwise be asked
+      // about — a guard must never widen permissions. An object with no
+      // decision leaves the normal permission flow alone.
+      if (!verdict.blocked) return { stdout: '{}', stderr: '', exitCode: 0 };
+      return {
+        stdout: JSON.stringify({
+          // `ask` respects a permission the user already granted, which is
+          // the behaviour wanted here: approving a push to `main` once for
+          // a session should not mean being asked again every commit.
+          decision: verdict.decision === 'ask' ? 'ask' : 'deny',
+          reason: verdict.reason,
+        }),
+        stderr: '',
+        exitCode: 0,
+      };
+    },
+  },
+
   gemini: {
     id: 'gemini',
     event: 'BeforeTool',
@@ -155,6 +197,10 @@ export function resolveDialect({ argv = [], env = {}, payload = {} } = {}) {
   const declared = readHarnessFlag(argv) ?? env.CHOWA_HARNESS;
   if (declared && Object.hasOwn(DIALECTS, declared)) return DIALECTS[declared];
 
+  // Antigravity is the only one that nests the tool call, which makes it
+  // unambiguous without looking at the event name at all.
+  if (payload?.toolCall !== undefined) return DIALECTS.antigravity;
+
   const event = payload?.hook_event_name;
   if (event === 'BeforeTool') return DIALECTS.gemini;
   if (event === 'PreToolUse') {
@@ -191,15 +237,28 @@ function readHarnessFlag(argv) {
  * @returns {Request}
  */
 export function normalize(payload, dialect) {
-  const toolName = typeof payload?.tool_name === 'string' ? payload.tool_name : '';
-  const toolInput = payload?.tool_input ?? {};
+  // Antigravity nests the call as `toolCall: { name, args }`; everyone else
+  // passes `tool_name` and `tool_input` side by side.
+  const toolName =
+    typeof payload?.toolCall?.name === 'string'
+      ? payload.toolCall.name
+      : typeof payload?.tool_name === 'string'
+        ? payload.tool_name
+        : '';
+  const toolInput = payload?.toolCall?.args ?? payload?.tool_input ?? {};
+
+  // Where the tool actually runs, in decreasing specificity: the argument
+  // naming one (Antigravity's `Cwd`), the session cwd, the first workspace
+  // root (Antigravity's only cwd when the tool doesn't name one).
+  const baseCwd =
+    firstString(toolInput.Cwd, payload?.cwd, payload?.workspacePaths?.[0]) ?? process.cwd();
 
   // Gemini's shell tool takes a `directory` relative to the workspace root;
   // a path in the command is relative to that, not to the session cwd.
-  const baseCwd = typeof payload?.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
-  const cwd = typeof toolInput.directory === 'string' && toolInput.directory
-    ? joinPosix(baseCwd, toolInput.directory)
-    : baseCwd;
+  const cwd =
+    typeof toolInput.directory === 'string' && toolInput.directory
+      ? joinPosix(baseCwd, toolInput.directory)
+      : baseCwd;
 
   // Classify by input shape as well as by name: a harness this doesn't know
   // still gets guarded as long as it passes a command or a path.
@@ -224,6 +283,10 @@ export function normalize(payload, dialect) {
     isShellTool: SHELL_TOOLS.has(toolName) || command !== undefined,
     isWriteTool: WRITE_TOOLS.has(toolName) || filePaths.length > 0,
   };
+}
+
+function firstString(...candidates) {
+  return candidates.find((value) => typeof value === 'string' && value !== '');
 }
 
 function joinPosix(base, relative) {

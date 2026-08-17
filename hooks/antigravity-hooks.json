@@ -1,0 +1,16 @@
+{
+  "chowa-guards": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"__CHOWA_SKILL_ROOT__/scripts/guard.mjs\" --harness antigravity",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

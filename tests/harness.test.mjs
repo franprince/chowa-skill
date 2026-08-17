@@ -29,6 +29,14 @@ const PAYLOADS = {
     tool_name: 'run_shell_command',
     tool_input: { command: 'git push origin main' },
   },
+  antigravity: {
+    // Nested tool call, PascalCase arguments, no `cwd` of its own.
+    toolCall: { name: 'run_command', args: { CommandLine: 'git push origin main', Cwd: '/home/user/project' } },
+    stepIdx: 19,
+    conversationId: 'c1',
+    workspacePaths: ['/home/user/project'],
+    transcriptPath: '/tmp/t.json',
+  },
 };
 
 test('resolveDialect prefers the harness declared on the command line', () => {
@@ -47,6 +55,13 @@ test('resolveDialect falls back to the environment, then to the payload', () => 
   assert.equal(resolveDialect({ payload: PAYLOADS.claude }).id, 'claude');
   assert.equal(resolveDialect({ payload: PAYLOADS.codex }).id, 'codex');
   assert.equal(resolveDialect({ payload: PAYLOADS.gemini }).id, 'gemini');
+  assert.equal(resolveDialect({ payload: PAYLOADS.antigravity }).id, 'antigravity');
+});
+
+test('a nested tool call identifies antigravity without an event name', () => {
+  // Its payload carries no `hook_event_name` at all, so the nesting is the
+  // only signal — and it is unambiguous.
+  assert.equal(resolveDialect({ payload: { toolCall: { name: 'run_command', args: {} } } }).id, 'antigravity');
 });
 
 test('resolveDialect ignores an unknown declared harness', () => {
@@ -58,7 +73,7 @@ test('resolveDialect returns generic for an unrecognized payload', () => {
   assert.equal(resolveDialect({}).id, 'generic');
 });
 
-test('normalize produces the same request from all three harnesses', () => {
+test('normalize produces the same request from every harness', () => {
   const requests = Object.entries(PAYLOADS).map(([id, payload]) =>
     normalize(payload, DIALECTS[id]),
   );
@@ -130,6 +145,36 @@ test('codex shares the schema but downgrades ask to deny', () => {
   assert.equal(JSON.parse(stdout).hookSpecificOutput.permissionDecision, 'deny');
 });
 
+test('normalize reads antigravity PascalCase write arguments', () => {
+  const request = normalize(
+    {
+      toolCall: { name: 'write_to_file', args: { TargetFile: 'spec.md', CodeContent: '# Spec' } },
+      workspacePaths: ['/home/user/project'],
+    },
+    DIALECTS.antigravity,
+  );
+
+  assert.deepEqual(request.filePaths, ['spec.md']);
+  assert.equal(request.isWriteTool, true);
+  assert.equal(request.cwd, '/home/user/project');
+});
+
+test('antigravity can ask, and never auto-allows on no opinion', () => {
+  const asked = JSON.parse(DIALECTS.antigravity.render(BLOCKED).stdout);
+  assert.equal(asked.decision, 'ask');
+  assert.equal(asked.reason, 'Nope.');
+
+  const denied = JSON.parse(
+    DIALECTS.antigravity.render({ blocked: true, decision: 'deny', reason: 'No.' }).stdout,
+  );
+  assert.equal(denied.decision, 'deny');
+
+  // `allow` would auto-approve calls the user would otherwise be prompted
+  // about; a guard must never widen permissions.
+  const quiet = JSON.parse(DIALECTS.antigravity.render({ blocked: false }).stdout);
+  assert.equal(quiet.decision, undefined);
+});
+
 test('gemini renders its own decision schema', () => {
   const { stdout, exitCode } = DIALECTS.gemini.render(BLOCKED);
   assert.equal(exitCode, 0);
@@ -157,5 +202,6 @@ test('every dialect stays silent when nothing is blocked', () => {
   }
   // Gemini's docs require JSON on stdout, so it gets an explicit no-opinion.
   assert.equal(DIALECTS.gemini.render({ blocked: false }).stdout, '{}');
+  assert.equal(DIALECTS.antigravity.render({ blocked: false }).stdout, '{}');
   assert.equal(DIALECTS.claude.render({ blocked: false }).stdout, '');
 });
