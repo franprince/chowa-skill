@@ -68,3 +68,55 @@ test('decide blocks tool calls attempting to write root-level tasks.md', () => {
   assert.equal(result.blocked, true);
   assert.match(result.reason, /prohibited/);
 });
+
+test('isRootSpecBashCommand catches in-place edits and moves', () => {
+  for (const command of [
+    'sed -i s/a/b/ spec.md',
+    'sed -i.bak s/a/b/ tasks.md',
+    'git mv notes.md spec.md',
+    'dd if=/dev/null of=spec.md',
+    'printf "x" >spec.md',
+    'cat a.md | tee implementation_plan.md',
+  ]) {
+    assert.equal(isRootSpecBashCommand(command, mockCwd), true, command);
+  }
+});
+
+test('isRootSpecBashCommand does not fire on a spec path inside a quoted string', () => {
+  // The old regex matched `> spec.md` anywhere in the line, so printing a
+  // sentence about specs was blocked. Blocking legitimate work is the worse
+  // failure mode of the two.
+  for (const command of [
+    'echo "write it to > spec.md later"',
+    "git commit -m 'docs: move spec.md into specs/'",
+    'grep -r "spec.md" .',
+  ]) {
+    assert.equal(isRootSpecBashCommand(command, mockCwd), false, command);
+  }
+});
+
+test('isRootSpecBashCommand leaves reads and moves-away alone', () => {
+  assert.equal(isRootSpecBashCommand('cat spec.md', mockCwd), false);
+  assert.equal(isRootSpecBashCommand('sed s/a/b/ spec.md', mockCwd), false);
+  assert.equal(isRootSpecBashCommand('mv spec.md specs/2026-08-17-x/spec.md', mockCwd), false);
+});
+
+test('decide reads apply_patch envelopes, the only file write Codex exposes', () => {
+  const patch = '*** Begin Patch\n*** Add File: spec.md\n+# Spec\n*** End Patch';
+  const result = decide('apply_patch', { command: patch }, mockCwd);
+  assert.equal(result.blocked, true);
+  assert.match(result.reason, /patch writes root-level `spec.md`/);
+
+  const allowed = '*** Begin Patch\n*** Add File: specs/2026-08-17-x/spec.md\n+# Spec\n*** End Patch';
+  assert.equal(decide('apply_patch', { command: allowed }, mockCwd).blocked, false);
+});
+
+test('decide covers the path key each harness uses', () => {
+  for (const key of ['file_path', 'notebook_path', 'path', 'absolute_path']) {
+    assert.equal(decide('Write', { [key]: 'spec.md' }, mockCwd).blocked, true, key);
+  }
+});
+
+test('decide denies rather than asks, since the agent can fix it itself', () => {
+  assert.equal(decide('Write', { file_path: 'spec.md' }, mockCwd).decision, 'deny');
+});

@@ -23,6 +23,8 @@ import { dirname, join, relative } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 
+import { isDirectRun } from './lib/direct-run.mjs';
+
 const STORY_EXTENSIONS = ['.stories.tsx', '.stories.ts', '.stories.jsx', '.stories.js', '.stories.mdx'];
 const COMPONENT_PATTERN = /\.(tsx|ts|jsx|js|vue|svelte)$/;
 const STORY_PATTERN = /\.stories\.(tsx|ts|jsx|js|mdx)$/;
@@ -365,6 +367,6 @@ async function main() {
   writeFileSync(join(dirname(outDir), 'visual-proof-snippet.md'), `${table}\n`, 'utf-8');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url)) {
   main();
 }
