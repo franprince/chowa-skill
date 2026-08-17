@@ -22,7 +22,8 @@ plan → execute, atomic commits, PR generation, branching discipline — but
 drives every step through the harness's own native tools instead of a
 bundled engine. There is nothing to install, build, or version beyond this
 file and the two small pieces that ship alongside it (a subagent for
-mechanical delegation, a push-protection hook). If a project wants the
+mechanical delegation, and pre-tool-use guards that run under Claude
+Code, Gemini CLI, and Codex alike). If a project wants the
 CLI-backed feature set this variant intentionally leaves out — model
 routing against live provider data, quota-aware session auto-resume — that
 lives in the sibling project instead of here.
@@ -152,14 +153,47 @@ replace a project's own quality gates.
 
 ### 5. Deterministic Workflow Enforcement via Agent Hooks
 
-While workflow rules guide model turns, agent hooks enforce strict guardrails programmatically before tool execution:
+Workflow rules guide model turns; hooks enforce the two rules that must
+not depend on a model reading prose. Both run before tool execution,
+through one dispatcher (`scripts/guard.mjs`):
 
-1. **Push Protection Guard (`guard-push.mjs`)**:
-   Hooked into `PreToolUse` for `Bash` commands in `hooks/hooks.json`. Inspects `git push` command lines and deterministically blocks direct pushes or deletes to protected branches (`main`, `master`).
-2. **Spec Location Guard (`guard-spec.mjs`)**:
-   Hooked into `PreToolUse` for `Bash`, `Write`, and `Edit` tools. Prevents creating or modifying root-level `spec.md` or `implementation_plan.md` files, enforcing persistence under `specs/<YYYY-MM-DD>-<slug>/`.
-3. **Custom Hook Configuration**:
-   Repositories using Chōwa can add or extend hooks in `.agents/hooks.json` or `hooks/hooks.json` to enforce quality gates deterministically prior to tool execution.
+1. **Push Protection Guard (`guard-push.mjs`)** — inspects `git push`
+   command lines and stops pushes (and deletes) whose *destination* is
+   `main`/`master`, while leaving the `release/*` → `main` flow alone. It
+   **asks** rather than denies where the harness can route a decision to
+   the user, because a repository's own first push is legitimate and the
+   human should be the one to say so. Applies in every project: it
+   encodes no Chōwa-specific convention.
+2. **Spec Location Guard (`guard-spec.mjs`)** — stops root-level
+   `spec.md`, `implementation_plan.md`, and `tasks.md` from being created
+   or edited, so specs persist under `specs/<YYYY-MM-DD>-<slug>/`. It
+   **denies**, with the correct location in the reason, since the agent
+   can act on that itself. Applies only where Step 0's opt-in signals
+   hold — a root `tasks.md` is an ordinary file in an unrelated project.
+3. **Escape hatch** — `CHOWA_GUARDS=off` in the environment disables both,
+   for the cases neither decision covers (bootstrapping a repository,
+   unattended runs).
+
+Hooks are supported on **Claude Code**, **Gemini CLI**, and **Codex
+(ChatGPT)**. Each harness names the event, the tools, and the deny schema
+differently; the guards decide once against a normalized request and the
+verdict is rendered per harness:
+
+| | Claude Code | Gemini CLI | Codex |
+|---|---|---|---|
+| Config | plugin `hooks/hooks.json`, or `.claude/settings.json` | `.gemini/settings.json` | `.codex/hooks.json` or `config.toml` |
+| Event | `PreToolUse` | `BeforeTool` | `PreToolUse` |
+| Tools matched | `Bash`, `Write`, `Edit`, `NotebookEdit` | `run_shell_command`, `write_file`, `replace` | `Bash`, `apply_patch` |
+| Can ask the user | yes | no | no |
+
+Install into a harness with
+`node scripts/install-hooks.mjs --harness <claude|gemini|codex>`
+(`--scope project` for this repository only, `--dry-run` to preview).
+Claude Code needs no install step when this is used as a plugin. A
+harness that declares none of the above still blocks — every one of the
+three treats exit code 2 with a reason on `stderr` as a rejection, so an
+unrecognized harness degrades to a coarser message, never to a silent
+allow.
 
 ### 6. Delegation Guidance
 
@@ -292,11 +326,10 @@ doesn't sit alongside it.
 - **No model routing against live provider data.** The table in Delegation
   Guidance is a fixed heuristic, not a resolved policy — there's no
   `chowa.config.ts` and no router here.
-- **No session-lifecycle tracking or quota-aware auto-resume.** That needs
-  real hook scripts reacting to `SessionStart`/`StopFailure` events, which
-  fire outside any model turn — genuinely not something a tool-calls-only
-  skill can do. If you need that, it lives in the CLI-backed sibling
-  project, not here.
+- **No session-lifecycle tracking or quota-aware auto-resume.** The hooks
+  here are pre-tool-use guards; reacting to `SessionStart`/`StopFailure`
+  means holding state across turns, which needs the CLI-backed sibling
+  project rather than a skill and a few stateless scripts.
 - **No commit-message generation via a separate delegated model call.**
   The primary session model writes commit messages and PR descriptions
   directly — simpler than routing that through another call, at the cost
@@ -312,3 +345,5 @@ doesn't sit alongside it.
 | Check a PR is actually mergeable | `gh pr view <n> --json mergeable,mergeStateStatus` |
 | PR description context | `git log <base>..HEAD`, `git diff <base>...HEAD` |
 | Personal always-on preference | `~/.chowa-skill/preferences.json` — `{"alwaysOn": true}` |
+| Install hooks into a harness | `node scripts/install-hooks.mjs --harness <claude\|gemini\|codex>` |
+| Turn the hook guards off | `CHOWA_GUARDS=off` in the environment |

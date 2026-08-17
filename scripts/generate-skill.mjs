@@ -20,6 +20,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isDirectRun } from './lib/direct-run.mjs';
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const TEMPLATE = join(repoRoot, 'templates/chowa-workflow.md');
@@ -49,11 +51,10 @@ const STATIC_SUFFIX = `## What this skill intentionally does not do
 - **No model routing against live provider data.** The table in Delegation
   Guidance is a fixed heuristic, not a resolved policy — there's no
   \`chowa.config.ts\` and no router here.
-- **No session-lifecycle tracking or quota-aware auto-resume.** That needs
-  real hook scripts reacting to \`SessionStart\`/\`StopFailure\` events, which
-  fire outside any model turn — genuinely not something a tool-calls-only
-  skill can do. If you need that, it lives in the CLI-backed sibling
-  project, not here.
+- **No session-lifecycle tracking or quota-aware auto-resume.** The hooks
+  here are pre-tool-use guards; reacting to \`SessionStart\`/\`StopFailure\`
+  means holding state across turns, which needs the CLI-backed sibling
+  project rather than a skill and a few stateless scripts.
 - **No commit-message generation via a separate delegated model call.**
   The primary session model writes commit messages and PR descriptions
   directly — simpler than routing that through another call, at the cost
@@ -69,6 +70,8 @@ const STATIC_SUFFIX = `## What this skill intentionally does not do
 | Check a PR is actually mergeable | \`gh pr view <n> --json mergeable,mergeStateStatus\` |
 | PR description context | \`git log <base>..HEAD\`, \`git diff <base>...HEAD\` |
 | Personal always-on preference | \`~/.chowa-skill/preferences.json\` — \`{"alwaysOn": true}\` |
+| Install hooks into a harness | \`node scripts/install-hooks.mjs --harness <claude\\|gemini\\|codex>\` |
+| Turn the hook guards off | \`CHOWA_GUARDS=off\` in the environment |
 `;
 
 const VALID_TAGS = new Set(['shared', 'chowa-only', 'chowa-skill-only']);
@@ -155,6 +158,6 @@ function main() {
   console.log(`✅ Wrote ${GENERATED_SKILL} from the template.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url)) {
   main();
 }
