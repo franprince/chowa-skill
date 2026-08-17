@@ -34,6 +34,14 @@ const ROOT_PLACEHOLDER = '__CHOWA_SKILL_ROOT__';
 /** Marks an entry as ours, so re-installing replaces instead of duplicating. */
 const OWNERSHIP_MARKER = 'scripts/guard';
 
+/**
+ * Where each harness keeps its hooks, and in what shape.
+ *
+ * Three of the four nest definitions under a `hooks` object keyed by event.
+ * Antigravity instead names each hook at the top level
+ * (`{"chowa-guards": {"PreToolUse": [...]}}`), so `hookName` selects that
+ * shape and doubles as the key we own in the user's file.
+ */
 export const HARNESSES = {
   claude: {
     event: 'PreToolUse',
@@ -56,6 +64,13 @@ export const HARNESSES = {
     user: () => join(homedir(), '.codex', 'hooks.json'),
     project: (cwd) => join(cwd, '.codex', 'hooks.json'),
   },
+  antigravity: {
+    event: 'PreToolUse',
+    hookName: 'chowa-guards',
+    snippet: join(repoRoot, 'hooks/antigravity-hooks.json'),
+    user: () => join(homedir(), '.gemini', 'config', 'hooks.json'),
+    project: (cwd) => join(cwd, '.agents', 'hooks.json'),
+  },
 };
 
 /** Does this hook definition belong to us? */
@@ -70,18 +85,25 @@ function isOurs(definition) {
  *
  * @param {object} existing - the parsed current config (or `{}`)
  * @param {object} snippet - the parsed config we ship
- * @param {string} event - the event key both sides use
+ * @param {{ event: string, hookName?: string }} harness
  * @returns {object} a new config object; `existing` is not mutated
  */
-export function mergeHooks(existing, snippet, event) {
+export function mergeHooks(existing, snippet, harness) {
   const merged = structuredClone(existing ?? {});
+
+  // Named shape: the whole entry lives under one key we own outright, so
+  // replacing it is already idempotent and leaves other hooks untouched.
+  if (harness.hookName) {
+    merged[harness.hookName] = snippet[harness.hookName];
+    return merged;
+  }
+
   merged.hooks ??= {};
-
-  const current = Array.isArray(merged.hooks[event]) ? merged.hooks[event] : [];
+  const current = Array.isArray(merged.hooks[harness.event]) ? merged.hooks[harness.event] : [];
   const theirs = current.filter((definition) => !isOurs(definition));
-  const ours = snippet?.hooks?.[event] ?? [];
+  const ours = snippet?.hooks?.[harness.event] ?? [];
 
-  merged.hooks[event] = [...theirs, ...ours];
+  merged.hooks[harness.event] = [...theirs, ...ours];
   return merged;
 }
 
@@ -96,20 +118,22 @@ export function mergeHooks(existing, snippet, event) {
  * precisely the case where it is not — there, this checkout is the root.
  */
 export function loadSnippet(snippetPath, root = repoRoot) {
-  const snippet = JSON.parse(readFileSync(snippetPath, 'utf-8'));
-
-  for (const definitions of Object.values(snippet.hooks ?? {})) {
-    for (const definition of definitions) {
-      for (const hook of definition.hooks ?? []) {
-        if (typeof hook.command !== 'string') continue;
-        hook.command = hook.command
-          .replaceAll(ROOT_PLACEHOLDER, root)
-          .replaceAll('"${CLAUDE_PLUGIN_ROOT}"', JSON.stringify(root));
-      }
+  const substitute = (value) => {
+    if (typeof value === 'string') {
+      return value
+        .replaceAll(ROOT_PLACEHOLDER, root)
+        .replaceAll('"${CLAUDE_PLUGIN_ROOT}"', JSON.stringify(root));
     }
-  }
+    if (Array.isArray(value)) return value.map(substitute);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substitute(item)]));
+    }
+    return value;
+  };
 
-  return snippet;
+  // Walked generically rather than reaching into `hooks[event][].hooks[]`,
+  // because the four harnesses do not agree on that nesting.
+  return substitute(JSON.parse(readFileSync(snippetPath, 'utf-8')));
 }
 
 function readConfig(configPath) {
@@ -139,7 +163,7 @@ export function install(harnessName, { scope = 'user', cwd = process.cwd(), dryR
 
   const configPath = scope === 'project' ? harness.project(cwd) : harness.user();
   const before = readConfig(configPath);
-  const merged = mergeHooks(before, loadSnippet(harness.snippet), harness.event);
+  const merged = mergeHooks(before, loadSnippet(harness.snippet), harness);
   const content = `${JSON.stringify(merged, null, 2)}\n`;
   const changed = JSON.stringify(before) !== JSON.stringify(merged);
 

@@ -46,8 +46,13 @@ Audit findings, in the order they were reported:
    conventions, but the matcher list only covers `Bash|Write|Edit`, so
    those keys are never populated. `notebook_path` is absent, so
    `NotebookEdit` on `spec.md` returns `blocked: false`.
-7. **`.agents/hooks.json` is documented but is not a real config path**
-   for any harness (`templates/chowa-workflow.md`).
+7. **`.agents/hooks.json` was reported as a documented path that is not
+   real. That report was wrong** — it is Antigravity's workspace
+   customization directory, and the original wording was describing a
+   harness the audit had not accounted for. What is actually wrong with
+   `templates/chowa-workflow.md` is that it names one config path without
+   saying which harness reads it, and describes hooks as if Claude Code
+   were the only target. Corrected by documenting all four.
 8. **Two Node processes spawn per Bash tool call**, because both guards
    are registered separately under the same matcher.
 
@@ -59,12 +64,13 @@ failure), while `sed -i … spec.md` and `git mv notes.md spec.md` pass.
 
 1. **G1.** Fix findings 1–8 and the quoting defect.
 2. **G2.** The guards run, and reach the same verdict, under Claude Code,
-   Gemini CLI, and Codex (ChatGPT) — each harness's own event name, tool
-   names, tool-input shape, and deny schema.
+   Gemini CLI, Codex (ChatGPT), and Antigravity — each harness's own
+   event name, tool names, tool-call shape, and deny schema.
 3. **G3.** An unrecognized harness still blocks, rather than failing open
-   silently, using the exit-2 + stderr convention all three share.
-4. **G4.** Ship ready-to-install configuration for all three harnesses,
-   and a command that merges it into the user's config idempotently.
+   silently, using the exit-2 + stderr convention three of the four share.
+4. **G4.** Ship ready-to-install configuration for every supported
+   harness, and a command that merges it into the user's config
+   idempotently — including the two distinct config *shapes* involved.
 5. **G5.** Decision policy is deliberate per guard, not incidental:
    agent-correctable violations `deny` (the agent retries correctly);
    decisions that belong to the human `ask` where the harness supports
@@ -90,23 +96,42 @@ failure), while `sed -i … spec.md` and `git mv notes.md spec.md` pass.
 
 | Dialect | Detected by | Deny schema | `ask` |
 |---|---|---|---|
+| `antigravity` | a nested `toolCall` object | `{"decision":"ask"\|"deny","reason"}` | yes |
 | `claude` | `hook_event_name: "PreToolUse"` | `hookSpecificOutput.permissionDecision` | yes |
 | `codex` | `PreToolUse` + `turn_id`/`tool_use_id` present | `hookSpecificOutput.permissionDecision` | no |
 | `gemini` | `hook_event_name: "BeforeTool"` | `{"decision":"deny","reason"}` | no |
 | `generic` | anything else | exit 2, reason on stderr | no |
 
+Detection is a fallback: every shipped config declares `--harness`
+explicitly, so payload sniffing only matters for hand-written ones.
+
+Gemini CLI and Antigravity both spell a denial `{"decision":"deny"}` and
+are still separate dialects — Antigravity nests the tool call, uses
+PascalCase arguments, and can prompt the user.
+
 Normalization maps each harness's tool vocabulary onto two kinds:
 
 - **shell** — `Bash` (Claude, Codex), `run_shell_command` (Gemini),
-  `apply_patch` (Codex). Carries `tool_input.command`.
+  `run_command` (Antigravity), `apply_patch` (Codex). Carries the command
+  under `tool_input.command` or `toolCall.args.CommandLine`.
 - **write** — `Write`/`Edit`/`NotebookEdit` (Claude),
-  `write_file`/`replace` (Gemini). Carries a file path under one of
-  `file_path`, `path`, `notebook_path`, `TargetFile`, `target_file`,
-  `AbsolutePath`.
+  `write_file`/`replace` (Gemini),
+  `write_to_file`/`replace_file_content` (Antigravity). Carries a file
+  path under one of `file_path`, `path`, `notebook_path`, `TargetFile`,
+  `target_file`, `AbsolutePath`.
 
 Codex has no file-write tool that fires `PreToolUse`; its edits arrive as
 `apply_patch` shell payloads, so `*** Add File:`, `*** Update File:`, and
 `*** Move to:` envelope lines are parsed for target paths.
+
+Antigravity's no-opinion response is `{}`, never `{"decision":"allow"}`:
+`allow` is an automatic approval there, so a guard returning it on every
+uninteresting call would silently widen permissions past the user's own
+prompts. A guard may narrow what is permitted; it must never widen it.
+
+Two config *shapes* exist, and the installer handles both: three
+harnesses key definitions under `hooks[event]`, while Antigravity names
+each hook at the top level (`{"chowa-guards": {"PreToolUse": [...]}}`).
 
 ### Decision policy
 
