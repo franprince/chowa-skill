@@ -1,7 +1,7 @@
 {
   "name": "chowa-skill",
   "displayName": "Chōwa Skill",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Spec-driven pipeline, atomic commits, PR generation, and mechanical delegation — pure skill, no CLI or bundled engine",
   "author": {
     "name": "Fran",
