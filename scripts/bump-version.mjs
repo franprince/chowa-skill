@@ -17,6 +17,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isDirectRun } from './lib/direct-run.mjs';
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLUGIN_MANIFEST = join(repoRoot, '.claude-plugin/plugin.json');
 
@@ -91,6 +93,6 @@ function main() {
   writeOutput('version', nextVersion);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url)) {
   main();
 }
