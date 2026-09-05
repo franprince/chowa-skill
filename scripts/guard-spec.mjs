@@ -14,9 +14,10 @@
  * 1. **It only applies where the convention does.** A root-level `tasks.md`
  *    is an ordinary file in most repositories, and this guard has no
  *    business rejecting it in a project that never adopted the spec →
- *    plan → execute layout. `inspect` checks opt-in the same way SKILL.md
- *    Step 0 does; `decide` stays pure policy so it can be tested without a
- *    project around it.
+ *    plan → execute layout. `inspect` checks the persistent signals listed
+ *    in SKILL.md Activation; conversation-only activation is unavailable to
+ *    stateless hooks. `decide` stays pure policy so it can be tested without
+ *    a project around it.
  * 2. **It denies rather than asks.** The reason text tells the agent
  *    exactly where the file belongs instead, so it can correct itself on
  *    the next call — routing a path convention to the user would be noise.

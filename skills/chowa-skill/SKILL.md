@@ -1,362 +1,197 @@
 ---
 name: chowa-skill
 description: >
-  Spec-driven development workflow — spec → plan → execute pipeline, atomic
-  Conventional Commits, PR generation, branching rules, and mechanical
-  sub-task delegation — using only this harness's own native tools (Read,
-  Edit, Write, Bash, Agent) plus `git`/`gh`. No CLI, no bundled engine,
-  nothing to install or version separately from the skill itself. Use this
-  whenever the user asks to start a new feature, write a spec or
-  implementation plan, commit changes, open a pull request, check whether a
-  PR is actually ready to merge, or delegate mechanical work to a cheaper
-  model — even if they don't name this skill explicitly. Detects whether
-  the current project already follows this convention before applying
-  anything.
+  Spec-driven development with durable plans, atomic Conventional Commits,
+  PR preparation and readiness checks, and bounded mechanical delegation.
+  Use for new features, specs, implementation plans, implementing approved
+  work, commits, PRs, mechanical delegation, or requested roadmap views.
+  Check project or user opt-in before applying the workflow; otherwise
+  follow repository conventions.
 ---
 
-# Chōwa Skill (pure-skill variant)
+# Chōwa Skill
 
-This is a lean sibling of [Chōwa](https://github.com/franprince/chowa), a
-CLI-backed coding harness. It carries the same workflow philosophy — spec →
-plan → execute, atomic commits, PR generation, branching discipline — but
-drives every step through the harness's own native tools instead of a
-bundled engine. There is nothing to install, build, or version beyond this
-file and the two small pieces that ship alongside it (a subagent for
-mechanical delegation, and pre-tool-use guards that run under Claude
-Code, Gemini CLI, Codex, and Antigravity alike). If a project wants the
-CLI-backed feature set this variant intentionally leaves out — model
-routing against live provider data, quota-aware session auto-resume — that
-lives in the sibling project instead of here.
+Use the host's native tools and `git`/`gh` for spec → plan → execute work.
+No Chōwa CLI is required. Live provider routing and session auto-resume
+belong to the sibling Chōwa project.
 
-## Step 0: Detect whether this project uses this workflow
+## Activation
 
-Check before applying anything below:
+On first use in a session, check the project root and read
+`~/.chowa-skill/preferences.json`. Reuse this context until the project or
+preferences change. Missing or unreadable preferences mean defaults.
 
-1. **Already opted in** — `specs/INDEX.md` exists at the project root (the
-   project already follows the spec → plan → execute convention by hand),
-   or the user explicitly asks, in this conversation, to use this workflow
-   here.
-2. **Personal always-on preference** — read `~/.chowa-skill/preferences.json`
-   on turn 1 of every session (a plain JSON file: `{"alwaysOn": true}`). If it
-   doesn't exist or can't be read, treat it as off. If enabled, apply this
-   workflow automatically on turn 1 to every project regardless of per-project signals.
-3. **Unrelated project** — none of the above. Say that plainly, **once per
-   session, not on every subsequent turn**, then defer to the project's own
-   conventions (`CONTRIBUTING.md`, existing commit style in `git log`) for
-   the rest of the session. Don't apply the rules below as if they were in
-   force. If the user wants this workflow applied to every project they
-   personally work in, write `~/.chowa-skill/preferences.json` with
-   `{"alwaysOn": true}` for them (creating the directory if needed) rather
-   than asking them to run a command that doesn't exist.
+- Persistent opt-in: `specs/INDEX.md` or `chowa.config.js`,
+  `chowa.config.ts`, or `chowa.config.mjs` exists at the project root;
+  alternatively, personal preferences set `"alwaysOn": true`.
+- Conversation opt-in: the user explicitly requests this workflow here.
+  Hooks cannot read that request; they recognize it once the pipeline
+  creates `specs/INDEX.md`. Until then, enforce the agreed paths yourself.
+- Otherwise, follow the repository's conventions. Explain activation only
+  when relevant to the request; do not start this pipeline or create markers.
+
+When asked to enable always-on behavior, update only `alwaysOn` in the
+personal JSON file, preserving other keys. This preference applies when the
+skill is loaded; it does not install a session-start hook.
+
+## Task entry and authorization
+
+Follow the user's requested scope and repository instructions. Resume an
+existing feature from its current artifacts; avoid restarting approved stages.
+
+| Request | Entry point |
+|---|---|
+| Feature or non-trivial change | Spec → plan/tasks → execute, starting at the first unfinished stage |
+| Spec or plan only | Produce the requested artifacts and stop at that boundary |
+| Commit existing changes | Review the diff, verify, and create logical commits |
+| Open/update a PR or assess readiness | Review branch/diff/checks and follow the PR workflow |
+| Read-only review or trivial edit | Handle directly; a trivial edit needs no new spec/plan/tasks |
+| Roadmap | Use the requested roadmap procedure |
+
+Spec and plan approval are checkpoints, not repeated questions. If the user
+already authorized the same scope, including a request to plan and implement,
+record that authorization and proceed. Ask only for an outstanding decision
+or approval; prepare the concrete artifacts before asking. Material scope
+changes require renewed agreement.
+
+## Host capabilities
+
+Use the available file, shell, question, and subagent tools. Claude tool names
+such as `AskUserQuestion`, `TaskCreate`, and `Agent` are examples, not required
+APIs. If a question tool is unavailable, ask in conversation. If task tracking
+is unavailable or redundant, use `tasks.md`; if delegation is unavailable,
+execute the task inline.
+
+Resolve references relative to this SKILL.md. For bundled scripts, locate the
+installation root containing `scripts/` (two levels above the directory
+containing SKILL.md in the plugin layout). Verify the script exists and use
+its absolute path with the target project as CWD. A copied skill without scripts cannot run those
+helpers; report the missing capability when needed.
 
 ## Workflow Rules
 
-### 1. Specification-Driven Pipeline (Spec → Plan → Execute)
+### 1. Specification-Driven Pipeline
 
-For all feature requests and non-trivial changes, follow this lifecycle:
+Use these stages for features and non-trivial changes, within the requested
+scope. Existing authorization covers the same stage and scope on resumption.
 
-1. **Constitution Check (`specs/CONSTITUTION.md`)** — if this is the
-   project's first spec and `specs/CONSTITUTION.md` doesn't exist, offer
-   to draft one collaboratively with the user (domain principles,
-   non-negotiables, style conventions) before Stage 1. Decline is fine —
-   this step never blocks the pipeline. If it exists, Stage 1 drafting
-   must read it and stay consistent with it; a spec that would conflict
-   with the constitution gets flagged to the user rather than silently
-   drafted around it. Lives once per project, not per-feature — updated
-   in place when principles change, with the change called out to the
-   user since it affects every future spec.
-2. **Stage 0: Backlog Breakdown (`specs/BACKLOG.md`)** — for complex tasks
-   spanning multiple modules, dependent phases, or multiple PRs, create
-   `specs/BACKLOG.md` first to outline epic milestones, sub-tasks, and
-   execution order before breaking individual tasks into specs.
-3. **Stage 1: Specification (`spec.md`)** — problem statement, goals,
-   non-goals, input/output schemas, edge cases, and acceptance criteria.
-   Before requesting approval, run a clarification pass over the draft:
-   scan it for ambiguous or underspecified requirements — vague
-   acceptance criteria, unstated edge-case behavior, conflicting goals —
-   and resolve them with the user (`AskUserQuestion` for discrete
-   choices, plain questions otherwise), updating the draft accordingly.
-   Get explicit user approval before Stage 2.
-4. **Stage 2: Implementation Plan (`implementation_plan.md`)** — files to
-   modify/create, component boundaries, test plan. Once approved, break
-   it into a persisted `tasks.md` — a checklist of discrete,
-   independently-completable work items, each stated concretely enough to
-   hand to delegation or execute directly. Get explicit user approval
-   before writing code.
-5. **Persistence** — write `spec.md`, `implementation_plan.md`, and
-   `tasks.md` to `specs/<YYYY-MM-DD>-<slug>/`, never as loose root-level
-   files, and add a row to `specs/INDEX.md` (create that layout if the
-   project doesn't have one yet). Root-level files get overwritten by the
-   next feature's docs with no record of what was approved — that's how
-   intent drifts across iterations.
-6. **Analyze** — cross-check `spec.md`'s goals/acceptance criteria against
-   `implementation_plan.md`'s (and `tasks.md`'s) coverage: every goal
-   traceable to at least one plan component/task, no plan component
-   without a goal it serves. Report findings to the user rather than
-   silently resolving them — they decide whether to revise or proceed.
-   Skippable at the same judgment threshold as Stage 0 (a small, obvious
-   change doesn't need a formal pass).
-7. **Stage 3: Execution & Verification** — implement the approved plan
-   (code + tests), mirroring `tasks.md`'s items into ephemeral
-   `TaskCreate` entries for in-session tracking (`tasks.md` stays the
-   durable record), then verify with the project's own quality gates (see
-   the Code Quality & Build Verification section below). Always ask the
-   user if they want a Pull Request opened after committing on a new
-   feature branch.
+1. **Project principles:** read `specs/CONSTITUTION.md` if present. Before a
+   project's first spec, offer to draft it without blocking the task. Flag
+   conflicts with its principles; agree on material changes with the user.
+2. **Backlog:** for work spanning dependent phases or multiple PRs, record
+   milestones and execution order in `specs/BACKLOG.md`.
+3. **Spec:** write the problem, goals, non-goals, relevant inputs/outputs,
+   edge cases, and acceptance criteria. Resolve ambiguities that affect
+   scope or acceptance; state reasonable implementation assumptions. Obtain
+   approval before planning unless that scope is already authorized.
+4. **Plan and tasks:** describe files, components, and verification in
+   `implementation_plan.md`; create `tasks.md` with concrete checkable items
+   and their dependencies. Review both together before coding, using existing
+   authorization where applicable.
+5. **Coverage:** for complex changes, map acceptance criteria to plan/tasks
+   before execution. Correct routine omissions within scope; raise unresolved
+   requirements or scope changes with the user.
+6. **Execute and verify:** implement the plan, check off tasks as completed,
+   and run applicable project quality gates. Mirror tasks into host tracking
+   only when useful. Resume from the durable checklist after interruption.
 
-### 2. Branching & PR Workflow
+Persist `spec.md`, `implementation_plan.md`, and `tasks.md` under
+`specs/<YYYY-MM-DD>-<slug>/`. Create or update `specs/INDEX.md` with a
+`Date | Slug | Status | Summary` row. Maintain the project's status vocabulary;
+if none exists, use `Draft`, `Approved`, `In Progress`, `Done`, `Dismissed`,
+or `Superseded by <link>`. Keep the index and feature status consistent.
 
-- Always create a new branch for features/fixes/tasks — never work or push
-  directly on `main` or `master`.
-- If the project uses a `develop` branch: `fix/*`, `feat/*`, `docs/*`,
-  `chore/*` etc. branch from `develop` and PR against `develop`; `release/*`
-  and `hotfix/*` branch from `develop` (a `hotfix/*` may branch from `main`
-  when patching a live incident) and PR from there to `main`. If the
-  project has no `develop` branch, branch from and PR against `main`
-  directly. Never push or PR straight to `main`/`master` outside that flow.
-- Check the local branch is up to date before starting work or committing:
-  `git fetch origin && git status -sb`.
-- Always ask the user if they want a PR opened, whenever creating a new
-  branch and committing.
-- Open the PR with `gh pr create`.
-- After opening a PR, check whether it's actually mergeable against its
-  base (`gh pr view <n> --json mergeable,mergeStateStatus`) — don't treat
-  "the PR exists" as "the PR is ready." A base branch that moved since you
-  branched (especially `develop` → `main` on a `release/*`/`hotfix/*` PR)
-  can leave it `CONFLICTING` with no error at creation time, and CI may
-  not even run until it's resolved. If so, merge the base branch into your
-  branch locally, resolve, push, and re-verify before calling the PR done.
+### 2. Branching and PR Workflow
 
-### 3. Commit Workflow & Messages
+- Use a topic branch for changes. Reuse the branch for the current task;
+  create one for a new task. Preserve unrelated working-tree changes.
+- Follow repository branch conventions. By default, branch from and target
+  `develop` when it exists. Release/hotfix branches target the default branch;
+  hotfixes may start there for a live incident. Otherwise, topic branches
+  start from and target the repository's default branch (`main` or `master`).
+- Before starting branch work, fetch the relevant remote and inspect branch
+  status. Recheck before publishing; reconcile divergence before claiming
+  readiness. Report unavailable remote checks without inventing freshness.
+- When PR preparation is within scope, create or update it if requested or
+  already authorized. Otherwise, prepare its title/body and ask once before
+  publishing it. Authorization to create a PR does not itself authorize
+  merging it.
+- Use `gh pr create` / `gh pr edit`. Check mergeability with
+  `gh pr view <n> --json mergeable,mergeStateStatus` and required checks with
+  `gh pr checks <n>`. Resolve base conflicts on the topic branch, verify,
+  and push within the authorized scope. Pending, unknown, or failing checks
+  must be reported accurately; they do not establish readiness.
 
-Read the diff yourself (`git diff`, `git status`) and split it into
-logical clusters by judgment — a heuristic like "group by file" is a
-starting point, not a verdict: if two files are one logical change (a
-function and its test, a doc and the index row pointing at it), commit
-them together. Splitting them would produce a commit that doesn't stand on
-its own. Write each commit message directly; there's no separate model
-call to delegate this to here.
-Commits must follow Conventional Commits: `type(scope): concise imperative
-description`.
+### 3. Commits and Verification
 
-- Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `ci`, `build`, `style`, `revert`
-- Scope: whatever the project uses (check recent `git log`, or an existing
-  `commitlint`/similar config).
+Inspect `git status`, the working diff, and the staged diff. Group commits
+by logical change, keeping implementation/tests and linked documentation
+together. Write commit messages directly in the primary session.
 
-### 4. Code Quality & Build Verification
+Use Conventional Commits: `type(scope): imperative description`, following
+repository types and scope conventions. Run the project's required
+checks appropriate to the change before committing. Reuse passing results
+while the relevant code and environment are unchanged; rerun affected checks
+after fixes. Report skipped checks and unresolved failures.
 
-Before committing, run the *project's own* test/lint/build scripts —
-typically something like `test`, `lint`, `build` in its `package.json`
-`scripts`, or whatever the project's own tooling is. This workflow's own
-conventions (model routing, commit-splitting, or their absence) don't
-replace a project's own quality gates.
+### 4. Hook Guards
 
-### 5. Deterministic Workflow Enforcement via Agent Hooks
+Installed guards request approval for recognized protected-branch pushes,
+deletes, and merges, or deny where the host cannot ask. Push/merge protection
+applies in every project. Spec-location protection applies to persistent
+opt-in signals: the index, a `chowa.config.js`/`.ts`/`.mjs` file, or personal
+`alwaysOn`. It rejects root-level `spec.md`, `implementation_plan.md`, and
+`tasks.md`; move these into the feature's dated directory.
 
-Workflow rules guide model turns; hooks enforce the two rules that must
-not depend on a model reading prose. Both run before tool execution,
-through one dispatcher (`scripts/guard.mjs`):
+Honor existing user authorization, but follow the host's permission decision
+when a guard intervenes. Guards do not infer conversational approval.
+Protection depends on installed adapters and recognized input shapes;
+malformed or unsupported payloads can defer to normal host permissions.
 
-1. **Push Protection Guard (`guard-push.mjs`)** — stops code landing on a
-   branch without a human saying so. That covers pushes (and deletes)
-   whose *destination* is `main`/`master`, leaving the `release/*` →
-   `main` flow alone, and it covers **merges**, which never invoke
-   `git push` at all: `gh pr merge`, the equivalent `gh api .../merge`
-   call, and `git merge` while a protected branch is checked out.
-   Opening the PR and reporting it green is where the agent's job ends;
-   merging is the human's decision. Merges ask regardless of destination
-   rather than resolving the base over the network — `gh pr merge` with
-   no arguments merges the current branch's PR, and a hook that made an
-   API call would put that latency on every shell command and fail open
-   whenever it failed. It **asks** rather than denies where the harness
-   can route a decision to the user. Applies in every project: it encodes
-   no Chōwa-specific convention.
-2. **Spec Location Guard (`guard-spec.mjs`)** — stops root-level
-   `spec.md`, `implementation_plan.md`, and `tasks.md` from being created
-   or edited, so specs persist under `specs/<YYYY-MM-DD>-<slug>/`. It
-   **denies**, with the correct location in the reason, since the agent
-   can act on that itself. Applies only where Step 0's opt-in signals
-   hold — a root `tasks.md` is an ordinary file in an unrelated project.
-3. **Escape hatch** — `CHOWA_GUARDS=off` in the environment disables both,
-   for the cases neither decision covers (bootstrapping a repository,
-   unattended runs).
+For hook installation or troubleshooting, read [Hook setup](references/hooks.md).
 
-Hooks are supported on **Claude Code**, **Gemini CLI**, **Codex
-(ChatGPT)**, and **Antigravity**. Each names the event, the tools, the
-payload, and the deny schema differently; the guards decide once against
-a normalized request and the verdict is rendered per harness:
+### 5. Mechanical Delegation
 
-| | Claude Code | Gemini CLI | Codex | Antigravity |
-|---|---|---|---|---|
-| Config | plugin `hooks/hooks.json`, or `.claude/settings.json` | `.gemini/settings.json` | `.codex/hooks.json` or `config.toml` | `.agents/hooks.json`, or `~/.gemini/config/hooks.json` |
-| Event | `PreToolUse` | `BeforeTool` | `PreToolUse` | `PreToolUse` |
-| Tools matched | `Bash`, `Write`, `Edit`, `NotebookEdit` | `run_shell_command`, `write_file`, `replace` | `Bash`, `apply_patch` | `run_command`, `write_to_file`, `replace_file_content` |
-| Tool call shape | `tool_name` + `tool_input` | same | same | `toolCall.name` + `toolCall.args`, PascalCase |
-| Can ask the user | yes | no | no | yes |
+Delegate a mechanical task only when its exact output or transformation rule
+is known and its size/repetition justifies the extra call. Handle trivial
+edits inline. Keep unresolved design decisions in the primary session; follow
+repository guidance on model choice and the user's requests for direct work.
 
-Install into a harness with
-`node scripts/install-hooks.mjs --harness <claude|gemini|codex|antigravity>`
-(`--scope project` for this repository only, `--dry-run` to preview).
-Claude Code needs no install step when this is used as a plugin.
+Use the packaged `chowa-skill-mechanical` agent where supported. On another
+host, use its available subagent capability and a permitted economical model;
+otherwise work inline. No provider lookup or routing configuration is needed.
 
-A harness that declares none of the above still blocks: Claude Code,
-Gemini CLI, and Codex all treat exit code 2 with a reason on `stderr` as
-a rejection, so an unrecognized harness degrades to a coarser message,
-never to a silent allow. Antigravity doesn't document exit codes, which
-is why it is declared explicitly rather than left to that fallback — and
-why its no-opinion response is an empty object rather than
-`{"decision": "allow"}`, which would auto-approve calls the user would
-otherwise have been asked about.
+Send the rule, owned files, relevant excerpts, constraints, and verification
+criteria. Avoid forwarding unrelated history; batch changes governed by the
+same rule. Require a concise report of changed files, applied changes, checks,
+and unresolved issues. The subagent stops if a new design decision is needed.
+The primary agent remains responsible for reviewing the diff and verifying
+the result; use the report to target further inspection.
 
-### 6. Delegation Guidance
+### 6. PR Descriptions
 
-There's no live routing policy to resolve here — no config file, no
-provider API to query. Use this as a starting heuristic, and defer to
-whatever the project's own conventions already say if they conflict:
+Read `git log <base>..HEAD` and `git diff <base>...HEAD`, then write the PR
+description directly.
 
-| Task kind | Suggested approach |
-|---|---|
-| Mechanical (renames, formatting, boilerplate) — trivial, one-line | Handle inline yourself; the round-trip costs more than it saves. |
-| Mechanical — large or repetitive (multi-file sweep, repo-wide pass) | Delegate via the `Agent` tool to a subagent pinned to a fast/cheap model (see below). |
-| Refactor, debug, architecture, security | Primary session model — these need full context and judgment a cheaper model doesn't have. |
+Describe the resulting behavior, material changes, and verification. Include
+a rollout/rollback plan for releases or hotfixes where relevant. End the PR
+description with this footer, replacing any default assistant attribution:
 
-### 7. Delegating Mechanical Sub-Tasks
-
-A sub-task qualifies for delegation only if, before delegating, you can
-state exactly what the correct output looks like (or exactly what
-mechanical rule to apply). If any part of "what should this become" is
-still an open design question, don't delegate — handle it inline.
-
-To delegate, invoke the `Agent` tool with the packaged mechanical subagent
-as the target.
-Ask it to report back a structured summary of exactly what changed — not
-just "done" — so you don't need to re-read every touched file yourself. If
-the user has asked you to handle a specific step directly, that overrides
-delegation for that step only. If the subagent hits something needing
-judgment mid-task, expect it to stop and hand back rather than deciding on
-its own.
-
-### 8. PR Description Generation
-
-Read the commit history and diff against the target base yourself
-(`git log <base>..HEAD`, `git diff <base>...HEAD`), then write the PR
-description directly — summary, changes, testing notes, and (for a
-release/hotfix) a rollout/rollback plan. Open or update it with
-`gh pr create` / `gh pr edit`.
-
-**⚠️ Experimental — Visual Proof (opt-in):** every PR description MUST
-include a `### Visual Proof` section, placed after `### Summary`. If the
-diff touches styling files (`*.css`, `*.scss`, `*.less`, Tailwind config),
-UI/frontend components (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.html`),
-or graphic assets/layout templates/theme definitions, attach visual
-evidence — a screenshot, a before/after image table, a Playwright
-snapshot, or a carousel — as markdown image links. For every other PR,
-write `N/A (non-visual change)` in that section instead of omitting it.
-
-```markdown
-### Summary
-<concise description of changes>
-
-### Visual Proof
-<!-- UI/styling changes: attach before/after screenshots, carousels, or
-     image links. Non-visual changes: N/A (non-visual change). -->
-![Visual Proof](<path-or-url>)
-
-### Verification
-<test & quality gate results>
-```
-
-### 9. Storybook Before/After Visual Proof (On-Request)
-
-When the user explicitly asks for visual proof of a Storybook-backed UI
-change — not automatically, and not implied merely by a diff touching
-styling files — run:
-
-```bash
-node scripts/storybook-proof.mjs --base <base-ref>
-```
-
-Requires the target project to already have Storybook and Playwright
-configured; the script exits with a clear message if either is missing
-rather than attempting to install them. It captures "before" screenshots
-from a temporary worktree at `<base-ref>` and "after" screenshots from
-the current working tree, for the stories belonging to components the
-diff actually touched, and prints a ready-to-paste Markdown before/after
-table for the `### Visual Proof` PR section.
-
-### 10. Roadmap Visualization
-
-**Trigger**: the user asks to see or visualize the roadmap, or to present
-the project's development history.
-
-**Data gathering**: read `specs/INDEX.md` first. Default to rich mode —
-also read each referenced `spec.md`'s Problem Statement/Goals sections for
-narrative depth. Switch to lean mode automatically once the index has more
-than 20 entries (use only the `Date | Slug | Status | Summary` row, no
-per-spec reads), or immediately if the user asked for something quick. Ask
-directly whenever which mode is wanted is ambiguous.
-
-**Before building**: give the page real visual design effort — a
-considered palette, paired typefaces, and deliberate layout — the same
-rigor as any presentation-quality deliverable. Not a plain list.
-
-**Layout**: a chronological timeline ordered by date, with each entry
-color-coded by status (`Draft`, `Approved`, `In Progress`, `Done`,
-`Dismissed`, `Superseded by <link>`), a ⚠️ experimental marker surfaced
-from a spec's own `Stability` field when present, a status filter, and
-per-entry expand/collapse for the rich-mode narrative text.
-
-**Output**: a fully self-contained HTML file (inline CSS/JS, no external
-requests, both light and dark themes handled via `prefers-color-scheme`)
-written to a local scratch path — never `specs/`, never committed — then
-opened in the system default browser (`xdg-open`/`open`/`start`,
-depending on OS). Report the local file path back to the user. This stays
-entirely local: no upload, no network call, no claude.ai dependency.
-
-### 11. ASD-STE100 Simplified Technical English Mode (Conversation Only)
-
-When `"ste100": true` is set in `~/.chowa-skill/preferences.json` or `chowa.config.js`, all conversation text responses output to the user MUST follow ASD-STE100 Simplified Technical English:
-
-1. **Active Voice & Imperative Verbs**: Use active voice only. Start instructions with strong imperative verbs (e.g., `Write`, `Update`, `Run`, `Verify`).
-2. **Sentence Length Limits**:
-   - Maximum 20 words for procedural steps and instructions.
-   - Maximum 25 words for descriptive statements.
-3. **One Instruction Per Sentence**: Write single, clear, un-nested sentences. Number procedural steps sequentially.
-4. **Controlled Vocabulary**: Use plain technical English. Avoid passive phrasing, complex idioms, or ambiguous jargon.
-
-Whether the body comes from `chowa pr` or you write it directly, close
-every PR with this line, on its own, after everything else:
-
-```
+```text
 調和 (Chōwa) — spec → plan → execute, verified before merge
 ```
 
-Never the default Claude Code attribution trailer — this replaces it, it
-doesn't sit alongside it.
+Experimental visual proof is enabled only by an explicit user request or a
+standing project instruction. UI file extensions alone do not enable it.
 
-## What this skill intentionally does not do
+When enabled, read [Visual proof](references/visual-proof.md). Run the
+Storybook collector only when specifically requested for a Storybook UI.
 
-- **No model routing against live provider data.** The table in Delegation
-  Guidance is a fixed heuristic, not a resolved policy — there's no
-  `chowa.config.ts` and no router here.
-- **No session-lifecycle tracking or quota-aware auto-resume.** The hooks
-  here are pre-tool-use guards; reacting to `SessionStart`/`StopFailure`
-  means holding state across turns, which needs the CLI-backed sibling
-  project rather than a skill and a few stateless scripts.
-- **No commit-message generation via a separate delegated model call.**
-  The primary session model writes commit messages and PR descriptions
-  directly — simpler than routing that through another call, at the cost
-  of not being able to pin a cheaper model specifically for it.
+### 7. Optional Procedures
 
-## Quick Reference
+Read only the reference needed for the current request:
 
-| What | How |
-|---|---|
-| Check remote is up to date | `git fetch origin && git status -sb` |
-| Inspect the diff before committing | `git diff`, `git status` |
-| Open a PR | `gh pr create` |
-| Check a PR is actually mergeable | `gh pr view <n> --json mergeable,mergeStateStatus` |
-| PR description context | `git log <base>..HEAD`, `git diff <base>...HEAD` |
-| Personal always-on preference | `~/.chowa-skill/preferences.json` — `{"alwaysOn": true}` |
-| Install hooks into a harness | `node scripts/install-hooks.mjs --harness <claude\|gemini\|codex\|antigravity>` |
-| Turn the hook guards off | `CHOWA_GUARDS=off` in the environment |
+- Requested roadmap or development history: [Roadmap](references/roadmap.md).
+- `ste100` enabled: [Simplified English](references/simplified-english.md).
+  An explicit project setting overrides the personal preference; default off.
+  Read the setting from `chowa.config.js` or personal preferences as data.

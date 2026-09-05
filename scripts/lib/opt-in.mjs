@@ -1,18 +1,15 @@
 /**
  * Project opt-in
  *
- * SKILL.md Step 0 sorts projects into opted-in, always-on, and unrelated,
- * and is explicit that unrelated projects get their own conventions
- * deferred to. The hook layer used to ignore that entirely and fire in
- * every repository the plugin was installed into — so a project with a
- * perfectly ordinary root-level `tasks.md` found it permanently
- * unwritable, rejected with a message about a convention it never adopted.
+ * SKILL.md Activation recognizes persistent opt-in through `specs/INDEX.md`,
+ * `chowa.config.js`, `chowa.config.ts`, `chowa.config.mjs`, or the personal
+ * `alwaysOn` preference. Stateless hooks can read these same signals.
  *
- * The two enforcement layers now read the same signal.
+ * A user can also activate the workflow in conversation. Hooks cannot read
+ * that authorization; they recognize it once a persistent marker exists.
  *
- * This applies to the spec guard only. "Don't push to `main` without being
- * asked" is not a Chōwa-specific convention, so the push guard stays
- * unconditional — and now asks rather than denies, where the harness can.
+ * Opt-in applies to the spec guard only. The push guard applies in every
+ * project and requests authorization where the harness supports it.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -46,7 +43,7 @@ export function alwaysOn(preferencesPath = PREFERENCES_PATH) {
   try {
     return JSON.parse(readFileSync(preferencesPath, 'utf-8'))?.alwaysOn === true;
   } catch {
-    return false; // Missing or unreadable preferences mean off, per Step 0.
+    return false; // Missing or unreadable preferences mean off, per Activation.
   }
 }
 

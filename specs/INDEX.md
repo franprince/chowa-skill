@@ -34,3 +34,4 @@ Chōwa's spec → plan → execute pipeline persists every iteration's `spec.md`
 | 2026-08-13 | [speckit-inspired-stages](2026-08-13-speckit-inspired-stages/spec.md) | Draft | Constitution, Clarify, Tasks, and Analyze stages added natively to the spec pipeline (spec-kit inspired, no CLI adopted) |
 | 2026-08-14 | [storybook-visual-proof-tool](2026-08-14-storybook-visual-proof-tool/spec.md) | Draft | Automated Before & After Storybook screenshot comparison tool for PR visual proof |
 | 2026-08-17 | [cross-harness-hook-guards](2026-08-17-cross-harness-hook-guards/spec.md) | Done | Fix the eight hook-layer audit findings; guards now run on Claude Code, Gemini CLI, and Codex |
+| 2026-09-05 | [skill-instruction-consistency](2026-09-05-skill-instruction-consistency/spec.md) | Done | Align workflow conditions and approval semantics; extract optional procedures to reduce entrypoint context |

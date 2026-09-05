@@ -1,22 +1,15 @@
 #!/usr/bin/env node
 /**
- * Skill generation
- *
- * `templates/chowa-workflow.md` is the source of truth shared with
- * chowa's own `sync-skill.ts` (github.com/franprince/chowa) — every block
- * is tagged `shared`, `chowa-only`, or `chowa-skill-only`. This script
- * keeps `shared` + `chowa-skill-only` blocks (dropping `chowa-only`),
- * numbers the resulting `### ` headings sequentially, and wraps the
- * result with this repo's frontmatter and the two sections that only
- * ever live in the generated file (not in the template, since chowa's
- * render step has no use for them).
+ * Generate the skill and its on-demand references from the shared template.
+ * Variant selection remains compatible with chowa's sibling renderer; only
+ * this generator extracts reference blocks from the selected content.
  *
  * Usage:
- *   node scripts/generate-skill.mjs          # write skills/chowa-skill/SKILL.md
- *   node scripts/generate-skill.mjs --check  # exit 1 if it would change
+ *   node scripts/generate-skill.mjs          # write all generated artifacts
+ *   node scripts/generate-skill.mjs --check  # detect stale or missing artifacts
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,134 +23,181 @@ export const GENERATED_SKILL = join(repoRoot, 'skills/chowa-skill/SKILL.md');
 const FRONTMATTER = `---
 name: chowa-skill
 description: >
-  Spec-driven development workflow — spec → plan → execute pipeline, atomic
-  Conventional Commits, PR generation, branching rules, and mechanical
-  sub-task delegation — using only this harness's own native tools (Read,
-  Edit, Write, Bash, Agent) plus \`git\`/\`gh\`. No CLI, no bundled engine,
-  nothing to install or version separately from the skill itself. Use this
-  whenever the user asks to start a new feature, write a spec or
-  implementation plan, commit changes, open a pull request, check whether a
-  PR is actually ready to merge, or delegate mechanical work to a cheaper
-  model — even if they don't name this skill explicitly. Detects whether
-  the current project already follows this convention before applying
-  anything.
+  Spec-driven development with durable plans, atomic Conventional Commits,
+  PR preparation and readiness checks, and bounded mechanical delegation.
+  Use for new features, specs, implementation plans, implementing approved
+  work, commits, PRs, mechanical delegation, or requested roadmap views.
+  Check project or user opt-in before applying the workflow; otherwise
+  follow repository conventions.
 ---`;
 
-// Not part of the template: nothing in chowa's render step needs to know
-// these exist, so they're kept here as a static suffix rather than
-// round-tripped through variant tags.
-const STATIC_SUFFIX = `## What this skill intentionally does not do
-
-- **No model routing against live provider data.** The table in Delegation
-  Guidance is a fixed heuristic, not a resolved policy — there's no
-  \`chowa.config.ts\` and no router here.
-- **No session-lifecycle tracking or quota-aware auto-resume.** The hooks
-  here are pre-tool-use guards; reacting to \`SessionStart\`/\`StopFailure\`
-  means holding state across turns, which needs the CLI-backed sibling
-  project rather than a skill and a few stateless scripts.
-- **No commit-message generation via a separate delegated model call.**
-  The primary session model writes commit messages and PR descriptions
-  directly — simpler than routing that through another call, at the cost
-  of not being able to pin a cheaper model specifically for it.
-
-## Quick Reference
-
-| What | How |
-|---|---|
-| Check remote is up to date | \`git fetch origin && git status -sb\` |
-| Inspect the diff before committing | \`git diff\`, \`git status\` |
-| Open a PR | \`gh pr create\` |
-| Check a PR is actually mergeable | \`gh pr view <n> --json mergeable,mergeStateStatus\` |
-| PR description context | \`git log <base>..HEAD\`, \`git diff <base>...HEAD\` |
-| Personal always-on preference | \`~/.chowa-skill/preferences.json\` — \`{"alwaysOn": true}\` |
-| Install hooks into a harness | \`node scripts/install-hooks.mjs --harness <claude\\|gemini\\|codex\\|antigravity>\` |
-| Turn the hook guards off | \`CHOWA_GUARDS=off\` in the environment |
-`;
-
 const VALID_TAGS = new Set(['shared', 'chowa-only', 'chowa-skill-only']);
+const SAFE_REFERENCE_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-/**
- * Render the template for chowa-skill's own generated file: drop
- * `chowa-only` blocks (markers and content) in place, unwrap `shared` and
- * `chowa-skill-only` blocks (drop only the markers, keep the content
- * exactly where it sits), then number the `### ` headings in document
- * order (the template carries no numbers, since chowa's own render of
- * this same file numbers differently). Substituting in place — rather
- * than extracting and rejoining kept blocks — is what preserves the
- * original blank-line spacing between blocks without a separate joiner.
- */
-export function renderTemplate(template) {
-  assertWellFormed(template);
-
-  const body = template.slice(template.indexOf('<!-- variant:'));
-  const withoutChowaOnly = body.replace(
-    /<!-- variant:chowa-only -->\n?[\s\S]*?<!-- variant:end -->\n?/g,
-    '',
-  );
-  const unwrapped = withoutChowaOnly.replace(
-    /<!-- variant:(?:shared|chowa-skill-only) -->\n?([\s\S]*?)<!-- variant:end -->\n?/g,
-    '$1',
-  );
-
-  const collapsed = unwrapped.replace(/\n{3,}/g, '\n\n').trim();
-
-  let n = 0;
-  let inFence = false;
-  return collapsed
-    .split('\n')
-    .map((line) => {
-      if (/^```/.test(line)) {
-        inFence = !inFence;
-        return line;
-      }
-      if (inFence) return line;
-      return line.replace(/^### (.+)$/, (_, title) => `### ${++n}. ${title}`);
-    })
-    .join('\n');
+/** Track Markdown fences, including longer fences and tilde fences. */
+function nextFence(line, fence) {
+  const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+  if (!match) return fence;
+  const [, delimiter, suffix] = match;
+  if (fence) {
+    return delimiter[0] === fence.character && delimiter.length >= fence.length && !suffix.trim()
+      ? null
+      : fence;
+  }
+  if (delimiter[0] === '`' && suffix.includes('`')) return null;
+  return { character: delimiter[0], length: delimiter.length };
 }
 
-function assertWellFormed(template) {
-  const starts = [...template.matchAll(/<!-- variant:(\S+) -->/g)];
-  for (const [, tag] of starts) {
-    if (tag !== 'end' && !VALID_TAGS.has(tag)) {
-      throw new Error(`Unrecognized variant tag "${tag}" in ${TEMPLATE}.`);
+function marker(line, kind) {
+  if (!new RegExp(`<!--\\s*${kind}\\s*:`).test(line)) return null;
+  const match = line.match(new RegExp(`^\\s*<!-- ${kind}:([^\\s]+) -->\\s*$`));
+  if (!match) throw new Error(`Malformed ${kind} marker: ${line.trim()}`);
+  return match[1];
+}
+
+/** Select variants without interpreting reference markers. */
+export function selectVariants(template, keptTags = ['shared', 'chowa-skill-only']) {
+  const kept = new Set(keptTags);
+  const lines = [];
+  let active = null;
+  let started = false;
+  let fence = null;
+
+  for (const line of template.split(/\r?\n/)) {
+    const tag = fence ? null : marker(line, 'variant');
+    if (tag !== null) {
+      if (tag === 'end') {
+        if (active === null) throw new Error('Unmatched variant end marker.');
+        active = null;
+      } else {
+        if (!VALID_TAGS.has(tag)) throw new Error(`Unrecognized variant tag "${tag}".`);
+        if (active !== null) throw new Error(`Nested variant marker "${tag}" inside "${active}".`);
+        active = tag;
+        started = true;
+      }
+      continue;
+    }
+    fence = nextFence(line, fence);
+    if (started && (active === null || kept.has(active))) lines.push(line);
+  }
+
+  if (active !== null) throw new Error(`Unmatched variant start marker "${active}".`);
+  if (!started) throw new Error('Template has no variant blocks.');
+  return lines.join('\n');
+}
+
+/** Collapse prose spacing and number main-document headings, preserving code. */
+function formatMarkdown(markdown, numberHeadings = false) {
+  let fence = null;
+  let heading = 0;
+  let previousBlank = false;
+  const lines = [];
+  for (const line of markdown.split('\n')) {
+    const wasFenced = fence !== null;
+    fence = nextFence(line, fence);
+    if (wasFenced || fence) {
+      lines.push(line);
+      previousBlank = false;
+      continue;
+    }
+    if (!line.trim()) {
+      if (!previousBlank) lines.push('');
+      previousBlank = true;
+      continue;
+    }
+    previousBlank = false;
+    lines.push(numberHeadings ? line.replace(/^### (.+)$/, (_, title) => `### ${++heading}. ${title}`) : line);
+  }
+  return lines.join('\n').trim();
+}
+
+/** Extract on-demand references after selecting this skill's variants. */
+export function renderSkill(template) {
+  const body = [];
+  const references = {};
+  let active = null;
+  let referenceLines = [];
+  let fence = null;
+
+  for (const line of selectVariants(template).split('\n')) {
+    const name = fence ? null : marker(line, 'reference');
+    if (name !== null) {
+      if (name === 'end') {
+        if (active === null) throw new Error('Unmatched reference end marker.');
+        references[active] = `${formatMarkdown(referenceLines.join('\n'))}\n`;
+        active = null;
+        referenceLines = [];
+      } else {
+        if (!SAFE_REFERENCE_NAME.test(name)) throw new Error(`Unsafe reference name "${name}".`);
+        if (active !== null) throw new Error(`Nested reference marker "${name}" inside "${active}".`);
+        if (Object.hasOwn(references, name)) throw new Error(`Duplicate reference name "${name}".`);
+        active = name;
+      }
+      continue;
+    }
+    fence = nextFence(line, fence);
+    (active === null ? body : referenceLines).push(line);
+  }
+
+  if (active !== null) throw new Error(`Unmatched reference start marker "${active}".`);
+  return { body: formatMarkdown(body.join('\n'), true), references };
+}
+
+/** Preserve the original API for callers that only need the main body. */
+export function renderTemplate(template) {
+  return renderSkill(template).body;
+}
+
+/** Build an explicit output set; files outside it are never removed. */
+export function generatedArtifacts(template, skillPath = GENERATED_SKILL) {
+  const { body, references } = renderSkill(template);
+  return new Map([
+    [skillPath, `${FRONTMATTER}\n\n${body}\n`],
+    ...Object.entries(references).map(([name, content]) => [
+      join(dirname(skillPath), 'references', `${name}.md`), content,
+    ]),
+  ]);
+}
+
+export function checkGeneratedArtifacts(artifacts) {
+  const issues = [];
+  for (const [path, expected] of artifacts) {
+    try {
+      if (readFileSync(path, 'utf-8') !== expected) issues.push(`${path} is out of date with the template.`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      issues.push(`${path} is missing.`);
     }
   }
-  const opens = starts.filter(([, tag]) => tag !== 'end').length;
-  const closes = (template.match(/<!-- variant:end -->/g) ?? []).length;
-  if (opens !== closes) {
-    throw new Error(
-      `Unmatched variant markers in ${TEMPLATE}: ${opens} start marker(s), ${closes} end marker(s).`,
-    );
-  }
+  return issues;
 }
 
-function assemble(template) {
-  return `${FRONTMATTER}\n\n${renderTemplate(template)}\n\n${STATIC_SUFFIX}`;
+export function writeGeneratedArtifacts(artifacts) {
+  for (const [path, content] of artifacts) {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content, 'utf-8');
+  }
 }
 
 function main() {
-  const checkOnly = process.argv.includes('--check');
-  const template = readFileSync(TEMPLATE, 'utf-8');
-  const generated = assemble(template);
-
-  if (checkOnly) {
-    const current = readFileSync(GENERATED_SKILL, 'utf-8');
-    if (current !== generated) {
-      console.error(
-        `❌ ${GENERATED_SKILL} is out of date with the template.\n` +
-          `   Run: node scripts/generate-skill.mjs`,
-      );
-      process.exit(1);
+  try {
+    const artifacts = generatedArtifacts(readFileSync(TEMPLATE, 'utf-8'));
+    if (process.argv.includes('--check')) {
+      const issues = checkGeneratedArtifacts(artifacts);
+      if (issues.length) {
+        console.error(`${issues.join('\n')}\nRun: node scripts/generate-skill.mjs`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`Generated skill and ${artifacts.size - 1} reference(s) are in sync with the template.`);
+      return;
     }
-    console.log('✅ Generated skill is in sync with the template.');
-    return;
+    writeGeneratedArtifacts(artifacts);
+    console.log(`Wrote the skill and ${artifacts.size - 1} reference(s) from the template.`);
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
   }
-
-  writeFileSync(GENERATED_SKILL, generated, 'utf-8');
-  console.log(`✅ Wrote ${GENERATED_SKILL} from the template.`);
 }
 
-if (isDirectRun(import.meta.url)) {
-  main();
-}
+if (isDirectRun(import.meta.url)) main();

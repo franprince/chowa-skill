@@ -8,7 +8,7 @@
     {
       "name": "chowa-skill",
       "source": "./",
-      "description": "Spec-driven pipeline, atomic commits, PR generation, and mechanical delegation — pure Claude Code skill, no CLI or bundled engine"
+      "description": "Spec → plan → execute workflow, atomic Conventional Commits, PR generation, and mechanical delegation — no Chōwa CLI or bundled engine required"
     }
   ]
 }

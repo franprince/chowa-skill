@@ -2,9 +2,9 @@
 /**
  * Push protection (pre-tool-use hook)
  *
- * This skill's branching rule — never push directly to `main`/`master`,
- * outside a `release/*` or `hotfix/*` PR — is prose in the skill, which a
- * model may or may not act on. This makes it mechanical.
+ * Recognized updates to `main`/`master` and pull-request merges go through
+ * the host's authorization flow. The guard does not prescribe a project's
+ * integration branch or infer approval from conversation history.
  *
  * Design constraints, in order of importance:
  *
@@ -229,12 +229,12 @@ export function decide(command, resolveBranch) {
 }
 
 const GUIDANCE =
-  'Never push directly to main/master. Branch (feat/*, fix/*, docs/*, ' +
-  'chore/*) and PR into develop; only release/* and hotfix/* PR into main.';
+  'Direct updates to main/master require authorization. Push a topic branch ' +
+  'and open a PR against the repository\'s integration branch.';
 
 const MERGE_GUIDANCE =
-  'Landing code is the human\'s decision, not the agent\'s — opening the PR ' +
-  'and reporting it green is where the agent\'s job ends. Ask before merging.';
+  'Landing code is the human\'s decision. Ask for authorization before merging ' +
+  'unless the user has already authorized this specific merge.';
 
 function block(reason, guidance = GUIDANCE) {
   return { blocked: true, decision: 'ask', reason: `${reason} ${guidance}` };

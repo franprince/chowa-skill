@@ -1,5 +1,4 @@
-/** @type {import('chowa').ChowaConfig} */
 module.exports = {
-  // Chōwa project configuration
-  // Enables spec → plan → execute pipeline, atomic commit enforcement, and plugin guards
+  // This file's presence opts the project into the Chōwa workflow.
+  // Optional settings, such as ste100, are preferences read by the skill's prompts.
 };
