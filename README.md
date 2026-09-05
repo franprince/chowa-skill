@@ -1,77 +1,118 @@
 # chowa-skill
 
-Spec → plan → execute pipeline, atomic Conventional Commits, PR generation, branching discipline, and mechanical sub-task delegation — using only this harness's own native tools (`Read`/`Edit`/`Write`/`Bash`/`Agent`) plus `git`/`gh`. No CLI, no bundled engine, nothing to install or version beyond this plugin's own files.
+Spec → plan → execute, atomic Conventional Commits, pull request preparation,
+and mechanical delegation using the host's native tools plus `git`/`gh`.
+No Chōwa CLI or bundled engine is required. The plugin includes a workflow
+skill, optional helper scripts, and a Claude Code mechanical subagent.
 
-A lean sibling of [chowa](https://github.com/franprince/chowa) (the CLI-backed original). This variant intentionally leaves out model routing against live provider data and quota-aware session auto-resume — both need more than a skill can do on its own. See the skill itself ([`skills/chowa-skill/SKILL.md`](skills/chowa-skill/SKILL.md)) for exactly what's in and out of scope.
+This is a sibling of [chowa](https://github.com/franprince/chowa), which
+provides live model routing and session auto-resume. This skill uses the
+host's available capabilities with inline fallbacks for optional task and
+subagent tools.
 
 ## Install
 
-Directly:
+Install the plugin directly:
 
-```
+```text
 /plugin marketplace add franprince/chowa-skill
 /plugin install chowa-skill@chowa-skill
 ```
 
-Or via [franprince/skills-marketplace](https://github.com/franprince/skills-marketplace), a personal catalog that lists this alongside other plugins:
+Or use the personal marketplace, which points to the same repository:
 
-```
+```text
 /plugin marketplace add franprince/skills-marketplace
 /plugin install chowa-skill@skills-marketplace
 ```
 
-Both install the same thing — this repo is the actual source either way; the marketplace just references it.
+When copying the skill to another host, include the complete
+`skills/chowa-skill/` directory, including `references/`. Helper scripts live
+at the plugin root; copying only the skill does not install those scripts or
+hook adapters. Keep the plugin checkout available for helper operations.
 
-## What's here
+## Workflow activation
 
-- `skills/chowa-skill/SKILL.md` — the workflow itself, generated (see below)
-- `agents/chowa-skill-mechanical.md` — subagent for delegated mechanical work (`model: haiku`, `Read`/`Edit`/`Bash` only)
-- `scripts/guard.mjs` — pre-tool-use dispatcher running both guards in one process:
-  - `guard-push.mjs` — asks before a push whose destination is `main`/`master` (the `release/*` → `main` flow is untouched)
-  - `guard-spec.mjs` — denies root-level `spec.md`/`implementation_plan.md`/`tasks.md`, in projects that opted into the convention
-- `hooks/*.json` — the same guards wired up for each supported harness
+The workflow applies when the project contains `specs/INDEX.md` or
+`chowa.config.js`, `chowa.config.ts`, or `chowa.config.mjs`; when personal
+`~/.chowa-skill/preferences.json` contains `"alwaysOn": true`; or when the
+user explicitly requests it. Conversation-only activation becomes visible
+to the stateless spec-location hook once the pipeline creates the index.
+Unrelated projects retain their own conventions.
 
-## Hooks work on Claude Code, Gemini CLI, Codex, and Antigravity
+The agent reads preferences when the skill is first loaded in a session.
+`alwaysOn` does not itself install a session-start hook. The optional `ste100`
+style preference applies to conversation prose; an explicit project boolean
+in `chowa.config.js` overrides the personal value. Preference updates preserve
+other settings.
 
-The four harnesses disagree on the event name (`PreToolUse` vs
-`BeforeTool`), the tool names (`Bash` vs `run_shell_command` vs
-`run_command`; `Write`/`Edit` vs `write_file`/`replace` vs
-`write_to_file`/`replace_file_content`; Codex edits through `apply_patch`),
-how the tool call is passed (`tool_name` + `tool_input`, or Antigravity's
-nested `toolCall` with PascalCase arguments), and the shape of a denial.
-The guards decide once against a normalized request, and the verdict is
-rendered in whichever dialect asked.
+Requests enter at the relevant workflow stage. A request to plan and implement
+supplies authorization for that scope; an existing PR-creation request does
+not require another approval question. Visual proof is experimental and
+requires an explicit user request or a standing project instruction.
 
+## Package contents
+
+- `skills/chowa-skill/SKILL.md`: generated core workflow and conditional links.
+- `skills/chowa-skill/references/*.md`: generated hook setup, visual proof and
+  Storybook collection, roadmap, and simplified-English procedures.
+- `agents/chowa-skill-mechanical.md`: Claude Code mechanical subagent;
+  summaries guide inspection while the primary agent reviews and verifies.
+- `scripts/guard.mjs`: dispatcher for protected-branch push/delete and merge
+  protection, plus opt-in spec-location protection.
+- `scripts/install-hooks.mjs`: merges the shipped adapters into host settings.
+- `scripts/storybook-proof.mjs`: explicitly requested before/after capture
+  using the target project's existing Storybook and Playwright setup.
+- `hooks/*.json`: adapter definitions for Claude Code, Gemini CLI, Codex,
+  and Antigravity.
+
+## Hook setup
+
+Claude Code plugin installation discovers `hooks/hooks.json` automatically.
+For other hosts, invoke the installer from the target project, using the
+absolute path to this plugin checkout:
+
+```bash
+node /absolute/plugin-root/scripts/install-hooks.mjs --harness gemini --scope project --dry-run
+node /absolute/plugin-root/scripts/install-hooks.mjs --harness gemini --scope project
 ```
-node scripts/install-hooks.mjs --harness gemini        # → ~/.gemini/settings.json
-node scripts/install-hooks.mjs --harness codex         # → ~/.codex/hooks.json
-node scripts/install-hooks.mjs --harness antigravity   # → ~/.gemini/config/hooks.json
-node scripts/install-hooks.mjs --all --dry-run         # preview, write nothing
+
+Choose `claude`, `gemini`, `codex`, or `antigravity`. Omit `--scope project`
+for user configuration. Installation preserves unrelated hook entries.
+
+Push/merge protection applies in every project and uses repository-neutral
+feedback. Spec-location protection requires a persistent opt-in signal.
+Claude Code and Antigravity adapters request approval; the other shipped
+adapters deny. Unknown or malformed input can defer to normal host permissions;
+these adapters are not a guarantee about every host's current tool payloads.
+See [Hook setup](skills/chowa-skill/references/hooks.md) for contracts and
+troubleshooting.
+
+## Authoring and generation
+
+`templates/chowa-workflow.md` is the source of truth for workflow prose.
+`scripts/generate-skill.mjs` owns frontmatter metadata and generation logic.
+Edit these sources, then run:
+
+```bash
+node scripts/generate-skill.mjs
+node --test
+node scripts/generate-skill.mjs --check
 ```
 
-Add `--scope project` to write into the current repository instead of the
-home directory (`.gemini/settings.json`, `.codex/hooks.json`,
-`.agents/hooks.json`). The merge is idempotent and leaves any hooks you
-already had in place. Claude Code needs no install step when this repo is
-installed as a plugin — it discovers `hooks/hooks.json` itself.
+The generator selects `shared` and `chowa-skill-only` variant blocks, extracts
+named `reference:<name>` blocks into `references/<name>.md`, and numbers the
+remaining workflow headings. Reference names are safe file basenames, each
+block has a matching `reference:end`, and blocks do not nest. Keep each
+reference inside a shared variant; put links to generated references in
+skill-only variants. `--check` verifies the entrypoint and all generated
+references, including missing files. Do not edit generated files directly.
 
-Only Claude Code and Antigravity can route a decision back to you, so the
-push guard asks there and denies elsewhere. A harness that speaks none of
-these dialects still gets blocked: Claude Code, Gemini CLI, and Codex all
-treat exit code 2 with a reason on `stderr` as a rejection, so the fallback
-degrades to a coarser message rather than a silent allow. Set
-`CHOWA_GUARDS=off` to disable the guards entirely.
-
-## `templates/chowa-workflow.md` is the source of truth
-
-`skills/chowa-skill/SKILL.md` is generated from `templates/chowa-workflow.md`
-via `node scripts/generate-skill.mjs` (`--check` verifies it's in sync; CI
-enforces this on every PR). The template also feeds
-[chowa](https://github.com/franprince/chowa)'s own canonical and portable
-skill files, fetched at a pinned commit SHA — a change here that changes
-what the template says is a breaking change for chowa's next sync, not
-just this repo. Edit the template, not the generated file, and run the
-generator before committing.
+The sibling [chowa](https://github.com/franprince/chowa) fetches the shared
+template at a pinned commit and selects `shared` and `chowa-only` blocks.
+Reference markers are Markdown comments, so its existing renderer retains
+those procedures inline and needs no separately distributed reference files.
+Review shared changes for both variants before advancing that pin.
 
 ## License
 

@@ -13,10 +13,10 @@
  * rather than appended to, keyed on the script path, so re-running after an
  * upgrade updates in place instead of stacking duplicates.
  *
- * Usage:
- *   node scripts/install-hooks.mjs --harness gemini
- *   node scripts/install-hooks.mjs --harness codex --scope project
- *   node scripts/install-hooks.mjs --all --dry-run
+ * Usage from the target project, with the resolved plugin installation root:
+ *   node /absolute/plugin-root/scripts/install-hooks.mjs --harness gemini
+ *   node /absolute/plugin-root/scripts/install-hooks.mjs --harness codex --scope project
+ *   node /absolute/plugin-root/scripts/install-hooks.mjs --all --dry-run
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

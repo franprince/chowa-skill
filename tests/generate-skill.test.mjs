@@ -1,110 +1,131 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { renderTemplate, TEMPLATE, GENERATED_SKILL } from '../scripts/generate-skill.mjs';
+import {
+  checkGeneratedArtifacts, generatedArtifacts, renderSkill, renderTemplate,
+  selectVariants, TEMPLATE, writeGeneratedArtifacts,
+} from '../scripts/generate-skill.mjs';
 
-test('keeps shared and chowa-skill-only content, drops chowa-only', () => {
+const block = (body, tag = 'shared') => `<!-- variant:${tag} -->\n${body}\n<!-- variant:end -->`;
+const reference = (name, body = `# ${name}\n\nReference content.`) =>
+  `<!-- reference:${name} -->\n${body}\n<!-- reference:end -->`;
+
+test('render selects shared and skill variants and numbers only retained main headings', () => {
   const template = [
-    '<!-- variant:shared -->',
-    'shared line',
-    '<!-- variant:end -->',
-    '<!-- variant:chowa-only -->',
-    'chowa-only line',
-    '<!-- variant:end -->',
-    '<!-- variant:chowa-skill-only -->',
-    'chowa-skill-only line',
-    '<!-- variant:end -->',
+    'Template preamble.',
+    block('### First\nShared content.'),
+    block('### Sibling\nSibling content.', 'chowa-only'),
+    block(reference('hooks', '# Hooks\n### Reference heading')),
+    block('### Second\nSkill content.', 'chowa-skill-only'),
   ].join('\n');
+  const { body, references } = renderSkill(template);
 
-  const rendered = renderTemplate(template);
-
-  assert.match(rendered, /shared line/);
-  assert.match(rendered, /chowa-skill-only line/);
-  assert.doesNotMatch(rendered, /chowa-only line/);
+  assert.equal(body, '### 1. First\nShared content.\n### 2. Second\nSkill content.');
+  assert.deepEqual(references, { hooks: '# Hooks\n### Reference heading\n' });
+  assert.equal(renderTemplate(template), body);
 });
 
-test('numbers ### headings sequentially in document order', () => {
+test('render preserves marker examples, headings, and blank lines inside Markdown fences', () => {
+  for (const [opening, closing] of [['```markdown', '```'], ['~~~~markdown', '~~~~'], ['````markdown', '````']]) {
+    const code = [
+      opening, '### Example', '<!-- reference:fake -->', '<!-- reference:end -->',
+      '<!-- variant:fake -->', '<!-- variant:end -->', '', '',
+      ...(opening === '```markdown' ? [] : ['```']), closing,
+    ].join('\n');
+    const { body, references } = renderSkill(block(`### First\n${code}\n### Second`));
+    assert.equal(body, `### 1. First\n${code}\n### 2. Second`);
+    assert.deepEqual(references, {});
+  }
+});
+
+test('render preserves fenced examples inside extracted references', () => {
+  const content = '# Hooks\n\n~~~md\n<!-- reference:end -->\n### Example\n~~~';
+  const { references } = renderSkill(block(reference('hooks', content)));
+  assert.equal(references.hooks, `${content}\n`);
+});
+
+test('render keeps shared reference detail inline for a sibling variant consumer', () => {
   const template = [
-    '<!-- variant:shared -->',
-    '### First',
-    'a',
-    '<!-- variant:end -->',
-    '<!-- variant:chowa-only -->',
-    '### Dropped',
-    'b',
-    '<!-- variant:end -->',
-    '<!-- variant:chowa-skill-only -->',
-    '### Second',
-    'c',
-    '<!-- variant:end -->',
+    block('### Rules'),
+    block('[Read hooks](references/hooks.md)', 'chowa-skill-only'),
+    block(reference('hooks', '# Hooks\nShared hook detail.')),
+    block('Sibling command.', 'chowa-only'),
   ].join('\n');
-
-  const rendered = renderTemplate(template);
-
-  assert.match(rendered, /### 1\. First/);
-  assert.match(rendered, /### 2\. Second/);
-  assert.doesNotMatch(rendered, /Dropped/);
+  // The sibling only selects variant blocks; it never extracts references.
+  const sibling = selectVariants(template, ['shared', 'chowa-only']);
+  assert.match(sibling, /Shared hook detail\./);
+  assert.match(sibling, /Sibling command\./);
+  assert.doesNotMatch(sibling, /references\/hooks\.md/);
+  assert.doesNotMatch(renderTemplate(template), /Shared hook detail\./);
 });
 
-test('does not number ### headings inside fenced code blocks', () => {
-  const template = [
-    '<!-- variant:shared -->',
-    '### First',
-    '```markdown',
-    '### Summary',
-    '### Visual Proof',
-    '```',
-    '### Second',
-    '<!-- variant:end -->',
-  ].join('\n');
-
-  const rendered = renderTemplate(template);
-
-  assert.match(rendered, /### 1\. First/);
-  assert.match(rendered, /### 2\. Second/);
-  assert.match(rendered, /^### Summary$/m);
-  assert.match(rendered, /^### Visual Proof$/m);
+test('render rejects malformed, unmatched, and nested variant markers', () => {
+  for (const [template, message] of [
+    [block('x', 'bogus'), /Unrecognized variant tag/],
+    ['<!-- variant:shared -->\nx', /Unmatched variant start/],
+    ['<!-- variant:end -->', /Unmatched variant end/],
+    [block(block('x')), /Nested variant marker/],
+    ['<!-- variant:shared-->\nx\n<!-- variant:end -->', /Malformed variant marker/],
+    ['No variants.', /no variant blocks/],
+  ]) assert.throws(() => renderSkill(template), message);
 });
 
-test('generated skill requires a Visual Proof section in PR descriptions', () => {
-  const template = readFileSync(TEMPLATE, 'utf-8');
-  const rendered = renderTemplate(template);
-
-  assert.match(rendered, /### Visual Proof/);
-  assert.match(rendered, /N\/A \(non-visual change\)/);
+test('render rejects malformed, unsafe, duplicate, nested, and unmatched reference markers', () => {
+  for (const [content, message] of [
+    ['<!-- reference:hooks-->\nx\n<!-- reference:end -->', /Malformed reference marker/],
+    ['<!--reference:hooks -->\nx\n<!-- reference:end -->', /Malformed reference marker/],
+    [reference('../hooks'), /Unsafe reference name/],
+    [reference('nested/hooks'), /Unsafe reference name/],
+    [reference('__proto__'), /Unsafe reference name/],
+    [`${reference('hooks')}\n${reference('hooks')}`, /Duplicate reference name/],
+    [reference('hooks', reference('other')), /Nested reference marker/],
+    ['<!-- reference:hooks -->\nx', /Unmatched reference start/],
+    ['<!-- reference:end -->', /Unmatched reference end/],
+  ]) assert.throws(() => renderSkill(block(content)), message);
 });
 
-test('generated skill documents Roadmap Visualization as a local, self-contained HTML file', () => {
-  const template = readFileSync(TEMPLATE, 'utf-8');
-  const rendered = renderTemplate(template);
+test('artifact checks detect stale and missing references as well as the main skill', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'chowa-skill-generator-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const skill = join(dir, 'SKILL.md');
+  const hooks = join(dir, 'references/hooks.md');
+  const artifacts = generatedArtifacts(block(`# Skill\n${reference('hooks')}`), skill);
+  assert.equal(artifacts.size, 2);
+  assert.equal(checkGeneratedArtifacts(artifacts).length, 2);
 
-  assert.match(rendered, /### \d+\. Roadmap Visualization/);
-  assert.match(rendered, /self-contained HTML file/);
-  assert.match(rendered, /no upload, no network call/);
+  writeGeneratedArtifacts(artifacts);
+  assert.deepEqual(checkGeneratedArtifacts(artifacts), []);
+  writeFileSync(hooks, 'Stale reference.');
+  assert.deepEqual(checkGeneratedArtifacts(artifacts), [`${hooks} is out of date with the template.`]);
+  unlinkSync(hooks);
+  assert.deepEqual(checkGeneratedArtifacts(artifacts), [`${hooks} is missing.`]);
+  writeGeneratedArtifacts(artifacts);
+  writeFileSync(skill, 'Stale skill.');
+  assert.deepEqual(checkGeneratedArtifacts(artifacts), [`${skill} is out of date with the template.`]);
+
+  const unowned = join(dir, 'references/personal.md');
+  writeFileSync(unowned, 'User-owned reference.');
+  writeGeneratedArtifacts(artifacts);
+  assert.equal(readFileSync(unowned, 'utf-8'), 'User-owned reference.');
+  assert.deepEqual(checkGeneratedArtifacts(artifacts), []);
 });
 
-test('throws on an unrecognized variant tag', () => {
-  const template = '<!-- variant:bogus -->\nx\n<!-- variant:end -->';
-
-  assert.throws(() => renderTemplate(template), /Unrecognized variant tag/);
+test('template exposes every generated reference through a resolvable main-body link', () => {
+  const { body, references } = renderSkill(readFileSync(TEMPLATE, 'utf-8'));
+  assert.deepEqual(Object.keys(references).sort(), ['hooks', 'roadmap', 'simplified-english', 'visual-proof']);
+  const linked = [...body.matchAll(/\]\(references\/([a-z0-9-]+)\.md\)/g)].map((match) => match[1]);
+  assert.deepEqual([...new Set(linked)].sort(), Object.keys(references).sort());
+  for (const content of Object.values(references)) {
+    assert.match(content, /^# /);
+    assert.ok(content.endsWith('\n'));
+  }
 });
 
-test('throws on unmatched variant markers', () => {
-  const template = '<!-- variant:shared -->\nx\n<!-- variant:shared -->\ny\n<!-- variant:end -->';
-
-  assert.throws(() => renderTemplate(template), /Unmatched variant markers/);
-});
-
-test('the committed generated skill matches what the template produces', () => {
-  // Same guarantee CI enforces via --check, kept here so a local
-  // `node --test` catches drift too.
-  const template = readFileSync(TEMPLATE, 'utf-8');
-  const expectedBody = renderTemplate(template);
-  const committed = readFileSync(GENERATED_SKILL, 'utf-8');
-
-  assert.ok(
-    committed.includes(expectedBody),
-    'generated SKILL.md does not contain the current template render — run `node scripts/generate-skill.mjs`',
-  );
+test('template generated artifacts are in sync and the entrypoint stays within its size budget', () => {
+  const artifacts = generatedArtifacts(readFileSync(TEMPLATE, 'utf-8'));
+  assert.deepEqual(checkGeneratedArtifacts(artifacts), [], 'Run: node scripts/generate-skill.mjs');
+  assert.ok([...artifacts.values()][0].length <= 12_000, 'Keep the main skill below 12,000 characters.');
 });

@@ -11,7 +11,7 @@
  * Run on-request only, from inside the target webapp project's own
  * working directory:
  *
- *   node scripts/storybook-proof.mjs --base <ref> [--stories <ids>] [--all] [--port <number>]
+ *   node /absolute/plugin-root/scripts/storybook-proof.mjs --base <ref> [--stories <ids>] [--all] [--port <number>]
  *
  * Shells out to the target project's own `storybook`/`playwright`
  * (via `npx`) rather than importing either as a library, so this
