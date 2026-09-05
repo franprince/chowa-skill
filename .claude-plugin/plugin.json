@@ -1,7 +1,7 @@
 {
   "name": "chowa-skill",
   "displayName": "Chōwa Skill",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Spec → plan → execute workflow, atomic Conventional Commits, PR generation, and mechanical delegation — no Chōwa CLI or bundled engine required",
   "author": {
     "name": "Fran",
