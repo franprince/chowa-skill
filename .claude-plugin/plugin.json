@@ -1,7 +1,7 @@
 {
   "name": "chowa-skill",
   "displayName": "Chōwa Skill",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "A spec → plan → execute skill for Claude Code, Codex, and Gemini CLI, with durable plans, atomic commits, PR workflows, and optional delegation.",
   "author": {
     "name": "Fran",
