@@ -49,3 +49,17 @@ test('bumpSemver: minor increments and resets patch', () => {
 test('bumpSemver: major increments and resets minor and patch', () => {
   assert.equal(bumpSemver('1.2.3', 'major'), '2.0.0');
 });
+
+test('classifyBump ignores Conventional Commit examples in the message body', () => {
+  assert.equal(classifyBump(['docs: describe labels\n\nfeat: example new feature']), 'none');
+  assert.equal(classifyBump(['Unclassified subject\n\nfix: example correction']), 'none');
+});
+
+test('classifyBump recognizes the alternative breaking footer spelling', () => {
+  assert.equal(classifyBump(['fix: adjust behavior\n\nBREAKING-CHANGE: remove old interface']), 'major');
+});
+
+test('bumpSemver rejects malformed versions and unsupported levels', () => {
+  assert.throws(() => bumpSemver('not-a-version', 'patch'), /Invalid release version/);
+  assert.throws(() => bumpSemver('1.2.3', 'none'), /Unknown version bump/);
+});

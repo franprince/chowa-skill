@@ -209,7 +209,17 @@ including missing files. Do not edit generated files directly.
 The core has a 7,000-character budget; optional procedures load only when
 needed. Tests exercise documented host payloads, hook installation, and helpers
 from an isolated copy of the skill. Version metadata in
-`.claude-plugin/plugin.json` is updated by the release workflow on merge.
+`.claude-plugin/plugin.json` is updated automatically on `main` after merge.
+Do not manually bump it in normal PRs. The largest Conventional Commit impact
+since the current release wins: `fix:` → patch, `feat:` → minor, and `!` or a
+`BREAKING CHANGE:` footer → major. Documentation-only changes do not trigger a
+release. Review the final squash commit message because automation uses its
+classification, not the affected file extensions.
+
+The workflow publishes annotated version tags explicitly. If a historical tag
+is missing, it recovers the boundary only from a matching release commit whose
+manifest transition is verified. After a release, check the workflow, manifest,
+and remote tag together. See [AGENTS.md](AGENTS.md) for the contributor rules.
 
 ## License
 

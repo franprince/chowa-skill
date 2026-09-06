@@ -17,6 +17,9 @@ jobs:
       - run: node scripts/generate-skill.mjs --check
 
   release:
+    concurrency:
+      group: chowa-release-main
+      cancel-in-progress: false
     needs: check-skill
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -31,14 +34,12 @@ jobs:
           node-version: 22
       - run: node scripts/bump-version.mjs
         id: bump
-      - name: Commit and tag
-        if: steps.bump.outputs.bumped == 'true'
+      - name: Commit and publish release tags
+        if: steps.bump.outputs.bumped == 'true' || steps.bump.outputs.restore_base_tag == 'true'
         env:
-          VERSION: ${{ steps.bump.outputs.version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/plugin.json
-          git commit -m "chore(release): v${VERSION} [skip ci]"
-          git tag "v${VERSION}"
-          git push origin HEAD:main --follow-tags
+          RELEASE_VERSION: ${{ steps.bump.outputs.version }}
+          RELEASE_BUMPED: ${{ steps.bump.outputs.bumped }}
+          RELEASE_BASE_TAG: ${{ steps.bump.outputs.base_tag }}
+          RELEASE_BASE_SHA: ${{ steps.bump.outputs.base_sha }}
+          RELEASE_RESTORE_BASE: ${{ steps.bump.outputs.restore_base_tag }}
+        run: bash scripts/publish-release.sh
