@@ -1,9 +1,49 @@
-# Chōwa Skill
+# Chōwa Skill (調和)
 
-A spec → plan → execute skill for **Claude Code, Codex, and Gemini CLI**.
-It keeps specifications and tasks in the repository, guides atomic Conventional
-Commits and pull requests, and uses the host's native tools for execution and
-optional delegation.
+> *Harmony from idea to pull request* — A skill that helps your coding agent
+> turn a rough idea into a clear spec, a practical plan, and changes you can review.
+
+Chōwa Skill brings a shared workflow to **Claude Code, Codex, and Gemini CLI**.
+Your specs, decisions, and tasks live alongside the code, so the next session
+can pick up from a written plan. Want tougher questions before you build?
+Ask for a **spec roast**. Ready to ship? Work through focused changes, run your
+project's checks, and prepare a pull request that tells the story.
+
+[Get started](#install-the-skill) · [Try a spec roast](#optional-spec-roast) ·
+[See how it fits together](#how-it-fits-together)
+
+## Why Chōwa Skill?
+
+- **Get clear before coding.** Turn an idea into testable requirements. An
+  optional spec roast challenges the assumptions and edge cases with you.
+- **Keep your place.** Save specs, plans, and task checklists in the repository.
+  Resume from recorded decisions instead of reconstructing them from chat.
+- **Make review easier.** Group work into atomic commits, explain the resulting
+  behavior in the PR, and report what was actually verified.
+- **Bring your preferred agent.** Use the same skill with Claude Code, Codex,
+  or Gemini CLI, using each host's native tools.
+
+## From idea to review
+
+```mermaid
+flowchart LR
+    Spec["Draft the spec"] -->|Skip roast| Plan["Plan the work"]
+    Spec -->|Optional roast| Refine["Refine together"]
+    Refine --> Plan
+    Plan --> Build["Build and verify"]
+    Build -->|When requested| PR["PR for review"]
+
+    classDef work fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef optional fill:#fff7ed,stroke:#ea580c,color:#7c2d12
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Spec,Plan,Build work
+    class Refine optional
+    class PR result
+```
+
+Follow the stages you request. Already have an approved plan, or only need a
+commit or PR review? Chōwa joins at that stage. The spec roast is optional,
+and you can stop it at any time.
 
 ## Install the skill
 
@@ -84,18 +124,31 @@ unanswered offer waits for your choice. The spec records progress so resuming
 work preserves your answers and does not repeat an accepted or declined offer.
 Existing approved plans and standalone commit/PR requests skip the offer.
 
-## Why one skill with procedure files?
+## How it fits together
 
-The entrypoint owns activation, authorization, and routing. Substantive
-instructions load from local references only at the relevant stage:
+One skill is the front door. Its entrypoint handles activation, scope, and
+routing, then reads the procedure needed for the current task.
 
-| Procedure | Loaded when |
-|---|---|
-| Pipeline | Drafting specs, planning, or implementing authorized work |
-| Spec refinement | A spec roast is accepted or explicitly requested |
-| Delivery | Branch setup, commits, PR creation, or readiness review |
-| Delegation | Considering or requesting bounded mechanical delegation |
-| Hooks, visual proof, roadmap, language style | Their documented trigger applies |
+```mermaid
+flowchart TB
+    Hosts["Claude Code · Codex · Gemini CLI"] --> Entry["Chōwa Skill<br/>Activation, scope and routing"]
+    Entry --> Pipeline["Pipeline<br/>Spec, plan and execute"]
+    Entry --> Delivery["Delivery<br/>Branches, commits and PRs"]
+    Entry -.->|When needed| Delegation["Mechanical delegation"]
+    Entry -.->|When enabled or requested| Extras["Hooks · visual proof<br/>Roadmap · language style"]
+    Pipeline -.->|Only if accepted or requested| Roast["Spec roast<br/>Questions, decisions and a sharper spec"]
+
+    classDef entry fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef procedure fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef optional fill:#fff7ed,stroke:#ea580c,color:#7c2d12
+    class Entry entry
+    class Hosts,Pipeline,Delivery procedure
+    class Delegation,Extras,Roast optional
+```
+
+The boxes are local procedure files inside the skill directory. They load on
+demand; loading a file does not start a separate agent. Installed hooks run
+through the host's hook system independently of these procedure files.
 
 This keeps one self-contained installation across all three hosts. Separate
 skills are useful when a capability needs independent discovery and reuse
