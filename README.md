@@ -1,35 +1,50 @@
-# chowa-skill
+# Chōwa Skill
 
-Spec → plan → execute, atomic Conventional Commits, pull request preparation,
-and mechanical delegation using the host's native tools plus `git`/`gh`.
-No Chōwa CLI or bundled engine is required. The plugin includes a workflow
-skill, optional helper scripts, and a Claude Code mechanical subagent.
+A spec → plan → execute skill for **Claude Code, Codex, and Gemini CLI**.
+It keeps specifications and tasks in the repository, guides atomic Conventional
+Commits and pull requests, and uses the host's native tools for execution and
+optional delegation.
 
-This is a sibling of [chowa](https://github.com/franprince/chowa), which
-provides live model routing and session auto-resume. This skill uses the
-host's available capabilities with inline fallbacks for optional task and
-subagent tools.
+## Install the skill
 
-## Install
+Copy the complete [`skills/chowa-skill/`](skills/chowa-skill/) directory into
+one of your host's skill locations. Keep its `references/`, `scripts/`, and
+`hooks/` subdirectories together; the skill has no dependency on the checkout
+that supplied it. Restart the host or reload skills after installation.
 
-Install the plugin directly:
+| Host | This project | All your projects |
+|---|---|---|
+| Claude Code | `.claude/skills/chowa-skill/` | `~/.claude/skills/chowa-skill/` |
+| Codex | `.agents/skills/chowa-skill/` | `~/.agents/skills/chowa-skill/` |
+| Gemini CLI | `.gemini/skills/chowa-skill/` | `~/.gemini/skills/chowa-skill/` |
+
+For Gemini, you can also use its native installer:
+
+```bash
+gemini skills install https://github.com/franprince/chowa-skill --path skills/chowa-skill --scope user
+```
+
+Invoke the skill by name using the host's skill picker or ask it to use Chōwa
+Skill. Gemini asks for consent when activating a skill. Workspace skills and hooks
+require a trusted project; an untrusted project can show no skills even after
+a successful install. Installation and activation follow each host's permissions.
+See the native [Claude Code](https://code.claude.com/docs/en/skills),
+[Codex](https://learn.chatgpt.com/docs/build-skills), and
+[Gemini CLI](https://geminicli.com/docs/cli/skills/) skill documentation.
+
+### Optional Claude Code plugin
+
+The plugin adds automatic hook discovery and a Claude mechanical subagent:
 
 ```text
 /plugin marketplace add franprince/chowa-skill
 /plugin install chowa-skill@chowa-skill
 ```
 
-Or use the personal marketplace, which points to the same repository:
-
-```text
-/plugin marketplace add franprince/skills-marketplace
-/plugin install chowa-skill@skills-marketplace
-```
-
-When copying the skill to another host, include the complete
-`skills/chowa-skill/` directory, including `references/`. Helper scripts live
-at the plugin root; copying only the skill does not install those scripts or
-hook adapters. Keep the plugin checkout available for helper operations.
+Install through either the plugin or the standalone skill path to avoid
+duplicate discovery. The standalone skill uses available native delegation or
+executes inline when subagents are unavailable. It does not require a specific
+agent name, model, task tracker, or question tool on other hosts.
 
 ## Workflow activation
 
@@ -51,68 +66,97 @@ supplies authorization for that scope; an existing PR-creation request does
 not require another approval question. Visual proof is experimental and
 requires an explicit user request or a standing project instruction.
 
-## Package contents
+## Optional spec roast
 
-- `skills/chowa-skill/SKILL.md`: generated core workflow and conditional links.
-- `skills/chowa-skill/references/*.md`: generated hook setup, visual proof and
-  Storybook collection, roadmap, and simplified-English procedures.
-- `agents/chowa-skill-mechanical.md`: Claude Code mechanical subagent;
-  summaries guide inspection while the primary agent reviews and verifies.
-- `scripts/guard.mjs`: dispatcher for protected-branch push/delete and merge
-  protection, plus opt-in spec-location protection.
-- `scripts/install-hooks.mjs`: merges the shipped adapters into host settings.
-- `scripts/storybook-proof.mjs`: explicitly requested before/after capture
-  using the target project's existing Storybook and Playwright setup.
-- `hooks/*.json`: adapter definitions for Claude Code, Gemini CLI, Codex,
-  and Antigravity.
+After drafting a feature spec, the skill offers once before planning:
 
-## Hook setup
+> Want a spec roast before planning? I’ll challenge the assumptions, edge
+> cases, and acceptance criteria. You can skip it or stop at any time.
 
-Claude Code plugin installation discovers `hooks/hooks.json` automatically.
-For other hosts, invoke the installer from the target project, using the
-absolute path to this plugin checkout:
+Accept to get focused rounds of one to three questions, with recommendations
+and tradeoffs. The agent researches available facts and writes your decisions
+into the spec. A short pass defaults to at most three rounds, followed by a
+summary for confirmation. Further rounds require your choice.
+
+Ask directly to “roast this spec” to opt in immediately. Decline to continue
+with normal clarification, or stop the interview whenever you want. An
+unanswered offer waits for your choice. The spec records progress so resuming
+work preserves your answers and does not repeat an accepted or declined offer.
+Existing approved plans and standalone commit/PR requests skip the offer.
+
+## Why one skill with procedure files?
+
+The entrypoint owns activation, authorization, and routing. Substantive
+instructions load from local references only at the relevant stage:
+
+| Procedure | Loaded when |
+|---|---|
+| Pipeline | Drafting specs, planning, or implementing authorized work |
+| Spec refinement | A spec roast is accepted or explicitly requested |
+| Delivery | Branch setup, commits, PR creation, or readiness review |
+| Delegation | Considering or requesting bounded mechanical delegation |
+| Hooks, visual proof, roadmap, language style | Their documented trigger applies |
+
+This keeps one self-contained installation across all three hosts. Separate
+skills are useful when a capability needs independent discovery and reuse
+outside this workflow. They are not required to defer loading a procedure, and
+would add installation dependencies and potentially overlapping triggers.
+Modularity reduces initial context; it does not guarantee that previously read
+instructions leave the conversation context.
+
+## Optional hooks and helpers
+
+The workflow uses native file and shell tools plus `git` and, for GitHub PRs,
+`gh`. Bundled helper scripts require **Node.js 22 or newer** on PATH. The
+Storybook collector additionally uses the target project's existing Storybook
+and Playwright setup, only when explicitly requested.
+
+Standalone skill discovery does not activate hooks. From the target project,
+use the absolute path to your installed skill directory:
 
 ```bash
-node /absolute/plugin-root/scripts/install-hooks.mjs --harness gemini --scope project --dry-run
-node /absolute/plugin-root/scripts/install-hooks.mjs --harness gemini --scope project
+node /absolute/skill-root/scripts/install-hooks.mjs --harness codex --scope project --dry-run
+node /absolute/skill-root/scripts/install-hooks.mjs --harness codex --scope project
 ```
 
-Choose `claude`, `gemini`, `codex`, or `antigravity`. Omit `--scope project`
-for user configuration. Installation preserves unrelated hook entries.
+Choose `claude`, `codex`, or `gemini`; an existing Antigravity adapter is also
+included. Omit `--scope project` for user configuration. Installation preserves
+unrelated hook entries. Codex user installs respect `CODEX_HOME`; review and
+trust installed or changed commands with `/hooks`, and trust the project for
+project configuration. Reload or restart the host as required by its settings.
 
-Push/merge protection applies in every project and uses repository-neutral
-feedback. Spec-location protection requires a persistent opt-in signal.
-Claude Code and Antigravity adapters request approval; the other shipped
-adapters deny. Unknown or malformed input can defer to normal host permissions;
-these adapters are not a guarantee about every host's current tool payloads.
-See [Hook setup](skills/chowa-skill/references/hooks.md) for contracts and
-troubleshooting.
+Claude Code plugin installation discovers its hooks automatically. Do not also
+install the standalone hook adapter for the same scope.
+
+Push/merge protection applies in every project; spec-location protection
+requires persistent opt-in. Claude can request approval; Codex and Gemini deny
+recognized blocked actions. Hooks check supported command and path shapes;
+unsupported shell constructs or malformed input can defer to normal host
+permissions. See [Hook setup](skills/chowa-skill/references/hooks.md) for
+contracts and troubleshooting.
 
 ## Authoring and generation
 
 `templates/chowa-workflow.md` is the source of truth for workflow prose.
-`scripts/generate-skill.mjs` owns frontmatter metadata and generation logic.
-Edit these sources, then run:
+`scripts/generate-skill.mjs` owns frontmatter and generation logic. Root-level
+`scripts/` and `hooks/` are canonical runtime sources. Edit those sources, then:
 
 ```bash
 node scripts/generate-skill.mjs
-node --test
+node --test tests/*.test.mjs
 node scripts/generate-skill.mjs --check
 ```
 
-The generator selects `shared` and `chowa-skill-only` variant blocks, extracts
-named `reference:<name>` blocks into `references/<name>.md`, and numbers the
-remaining workflow headings. Reference names are safe file basenames, each
-block has a matching `reference:end`, and blocks do not nest. Keep each
-reference inside a shared variant; put links to generated references in
-skill-only variants. `--check` verifies the entrypoint and all generated
-references, including missing files. Do not edit generated files directly.
+The generator extracts named `reference:<name>` blocks into `references/`,
+numbers the main workflow headings, and copies runtime resources into the
+skill directory. Reference names must be safe basenames; blocks must end with
+`reference:end` and cannot nest. `--check` verifies every generated artifact,
+including missing files. Do not edit generated files directly.
 
-The sibling [chowa](https://github.com/franprince/chowa) fetches the shared
-template at a pinned commit and selects `shared` and `chowa-only` blocks.
-Reference markers are Markdown comments, so its existing renderer retains
-those procedures inline and needs no separately distributed reference files.
-Review shared changes for both variants before advancing that pin.
+The core has a 7,000-character budget; optional procedures load only when
+needed. Tests exercise documented host payloads, hook installation, and helpers
+from an isolated copy of the skill. Version metadata in
+`.claude-plugin/plugin.json` is updated by the release workflow on merge.
 
 ## License
 

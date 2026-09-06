@@ -18,11 +18,11 @@ Run the bundled collector only when the user explicitly requests visual proof
 for a Storybook-backed UI. General visual-proof opt-in or a styling diff does
 not automatically authorize running this collector.
 
-Keep the target project as CWD. Resolve the plugin root containing `scripts/`
+Keep the target project as CWD. Resolve the skill directory containing SKILL.md
 and substitute its verified absolute path:
 
 ```bash
-node /absolute/plugin-root/scripts/storybook-proof.mjs --base <base-ref>
+node /absolute/skill-root/scripts/storybook-proof.mjs --base <base-ref>
 ```
 
 The project must already have Storybook and Playwright configured. The helper

@@ -28,10 +28,7 @@ Plan → Execute, but has four gaps:
 GitHub's [spec-kit](https://github.com/github/spec-kit) toolkit ships all
 four of these as `/speckit.constitution`, `/speckit.clarify`,
 `/speckit.tasks`, and `/speckit.analyze`. spec-kit itself is a separately
-installed Python CLI (`specify-cli` via `uv`), which conflicts with this
-project's core design constraint — `skills/chowa-skill/SKILL.md`'s own
-frontmatter states "No CLI, no bundled engine, nothing to install or
-version separately from the skill itself." This spec adds the four ideas
+installed tool. This skill implements the four ideas
 natively — as prompt-driven workflow steps and persisted markdown
 artifacts inside the existing pipeline — without adopting the external
 tool.
@@ -58,9 +55,8 @@ tool.
    `spec.md`'s goals/acceptance criteria against `implementation_plan.md`'s
    (and `tasks.md`'s) coverage, and report gaps or contradictions to the
    user rather than silently resolving them.
-5. All four ship through `templates/chowa-workflow.md` as `shared` blocks
-   — none require a CLI command, so none need a `chowa-only` /
-   `chowa-skill-only` split — then propagate to `skills/chowa-skill/SKILL.md`
+5. All four ship through `templates/chowa-workflow.md` as workflow prose,
+   then propagate to `skills/chowa-skill/SKILL.md`
    via the existing generator (`node scripts/generate-skill.mjs`), never
    hand-edited directly.
 6. `scripts/guard-spec.mjs` extended to also guard root-level `tasks.md`,
@@ -72,11 +68,6 @@ tool.
 - Adopting spec-kit itself, its CLI, or its slash-command surface.
 - A `/speckit.converge`-equivalent completeness-scoring stage — decided
   against in prior discussion as under-specified and premature.
-- Changes to chowa's own CLI-backed repository
-  (`github.com/franprince/chowa`) — this spec only touches the shared
-  template. `sync-skill.ts` there picks up these blocks automatically
-  whenever that repo's maintainer bumps its pinned commit SHA; that action
-  is outside this spec's control and not required for this spec to ship.
 - Restructuring `specs/INDEX.md`'s schema — `tasks.md` is a sibling file
   discoverable inside each spec's own directory; no new INDEX column is
   required.
@@ -142,14 +133,8 @@ doesn't need a formal analysis pass.
 
 ### 5. `templates/chowa-workflow.md` changes
 
-- Author all four additions as `shared` blocks — none require a CLI
-  command, all are prompt-driven judgment plus file writes, so no
-  `chowa-only` / `chowa-skill-only` split is needed.
-- Regenerate `skills/chowa-skill/SKILL.md` via
-  `node scripts/generate-skill.mjs` — never hand-edited.
-- These blocks apply verbatim to chowa's own CLI-backed skill too, once
-  `sync-skill.ts` bumps its pin — no `chowa-only` wiring needed there
-  either, since none of the four require CLI commands.
+- Author all four additions in the workflow template and regenerate the skill
+  with `node scripts/generate-skill.mjs`; never edit generated files directly.
 
 ### 6. `scripts/guard-spec.mjs` changes
 

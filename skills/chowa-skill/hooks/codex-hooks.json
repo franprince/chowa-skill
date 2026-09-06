@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"__CHOWA_SKILL_ROOT__/scripts/guard.mjs\" --harness codex",
+            "timeout": 30,
+            "statusMessage": "Checking Chōwa guards"
+          }
+        ]
+      }
+    ]
+  }
+}

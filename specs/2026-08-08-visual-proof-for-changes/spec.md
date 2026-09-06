@@ -18,7 +18,7 @@ Without mandatory visual proof in PR descriptions:
 
 ## Goals
 
-1. **Mandatory PR Visual Proof Section**: Require every Pull Request description generated or created via Chōwa (`gh pr create` / `chowa pr`) to include a `### Visual Proof` section.
+1. **Mandatory PR Visual Proof Section**: Require every Pull Request description generated or created with the skill (`gh pr create`) to include a `### Visual Proof` section.
 2. **Visual Evidence for UI/Style Changes**: When a PR includes visual or styling modifications (CSS, SCSS, UI components, HTML templates, assets), the author/agent MUST attach visual proof (e.g. before/after screenshots, Playwright browser snapshots, rendered UI mockups, or carousels) into the PR description.
 3. **Explicit Non-Visual Exemption**: For PRs touching only backend code, CLI logic, tests, or non-visual files, the section must explicitly state `N/A (non-visual change)`.
 4. **Update Chōwa Workflow Template & Skill**: Update `templates/chowa-workflow.md` and rebuild `skills/chowa-skill/SKILL.md` using `scripts/generate-skill.mjs`.

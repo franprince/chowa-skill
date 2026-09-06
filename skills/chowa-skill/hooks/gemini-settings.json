@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command|write_file|replace",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "chowa-guards",
+            "description": "Chōwa push protection and spec-location guards",
+            "command": "node \"__CHOWA_SKILL_ROOT__/scripts/guard.mjs\" --harness gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

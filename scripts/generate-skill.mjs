@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate the skill and its on-demand references from the shared template.
- * Variant selection remains compatible with chowa's sibling renderer; only
- * this generator extracts reference blocks from the selected content.
+ * Generate the standalone skill, on-demand references, and runtime resources.
  *
  * Usage:
  *   node scripts/generate-skill.mjs          # write all generated artifacts
@@ -24,14 +22,13 @@ const FRONTMATTER = `---
 name: chowa-skill
 description: >
   Spec-driven development with durable plans, atomic Conventional Commits,
-  PR preparation and readiness checks, and bounded mechanical delegation.
-  Use for new features, specs, implementation plans, implementing approved
+  optional spec roasts, PR readiness checks, and bounded mechanical delegation.
+  Use for new features, specs or spec refinement, plans, implementing approved
   work, commits, PRs, mechanical delegation, or requested roadmap views.
   Check project or user opt-in before applying the workflow; otherwise
   follow repository conventions.
 ---`;
 
-const VALID_TAGS = new Set(['shared', 'chowa-only', 'chowa-skill-only']);
 const SAFE_REFERENCE_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 /** Track Markdown fences, including longer fences and tilde fences. */
@@ -53,37 +50,6 @@ function marker(line, kind) {
   const match = line.match(new RegExp(`^\\s*<!-- ${kind}:([^\\s]+) -->\\s*$`));
   if (!match) throw new Error(`Malformed ${kind} marker: ${line.trim()}`);
   return match[1];
-}
-
-/** Select variants without interpreting reference markers. */
-export function selectVariants(template, keptTags = ['shared', 'chowa-skill-only']) {
-  const kept = new Set(keptTags);
-  const lines = [];
-  let active = null;
-  let started = false;
-  let fence = null;
-
-  for (const line of template.split(/\r?\n/)) {
-    const tag = fence ? null : marker(line, 'variant');
-    if (tag !== null) {
-      if (tag === 'end') {
-        if (active === null) throw new Error('Unmatched variant end marker.');
-        active = null;
-      } else {
-        if (!VALID_TAGS.has(tag)) throw new Error(`Unrecognized variant tag "${tag}".`);
-        if (active !== null) throw new Error(`Nested variant marker "${tag}" inside "${active}".`);
-        active = tag;
-        started = true;
-      }
-      continue;
-    }
-    fence = nextFence(line, fence);
-    if (started && (active === null || kept.has(active))) lines.push(line);
-  }
-
-  if (active !== null) throw new Error(`Unmatched variant start marker "${active}".`);
-  if (!started) throw new Error('Template has no variant blocks.');
-  return lines.join('\n');
 }
 
 /** Collapse prose spacing and number main-document headings, preserving code. */
@@ -111,7 +77,7 @@ function formatMarkdown(markdown, numberHeadings = false) {
   return lines.join('\n').trim();
 }
 
-/** Extract on-demand references after selecting this skill's variants. */
+/** Extract on-demand references from the single workflow source. */
 export function renderSkill(template) {
   const body = [];
   const references = {};
@@ -119,7 +85,7 @@ export function renderSkill(template) {
   let referenceLines = [];
   let fence = null;
 
-  for (const line of selectVariants(template).split('\n')) {
+  for (const line of template.split(/\r?\n/)) {
     const name = fence ? null : marker(line, 'reference');
     if (name !== null) {
       if (name === 'end') {
@@ -148,6 +114,16 @@ export function renderTemplate(template) {
   return renderSkill(template).body;
 }
 
+/** Runtime files needed when only the skill directory is installed. */
+export const RUNTIME_FILES = [
+  'scripts/guard.mjs', 'scripts/guard-push.mjs', 'scripts/guard-spec.mjs',
+  'scripts/install-hooks.mjs', 'scripts/storybook-proof.mjs',
+  'scripts/lib/direct-run.mjs', 'scripts/lib/harness.mjs',
+  'scripts/lib/opt-in.mjs', 'scripts/lib/shell.mjs',
+  'hooks/hooks.json', 'hooks/codex-hooks.json',
+  'hooks/gemini-settings.json', 'hooks/antigravity-hooks.json',
+];
+
 /** Build an explicit output set; files outside it are never removed. */
 export function generatedArtifacts(template, skillPath = GENERATED_SKILL) {
   const { body, references } = renderSkill(template);
@@ -156,6 +132,7 @@ export function generatedArtifacts(template, skillPath = GENERATED_SKILL) {
     ...Object.entries(references).map(([name, content]) => [
       join(dirname(skillPath), 'references', `${name}.md`), content,
     ]),
+    ...RUNTIME_FILES.map((path) => [join(dirname(skillPath), path), readFileSync(join(repoRoot, path), 'utf-8')]),
   ]);
 }
 
@@ -163,7 +140,7 @@ export function checkGeneratedArtifacts(artifacts) {
   const issues = [];
   for (const [path, expected] of artifacts) {
     try {
-      if (readFileSync(path, 'utf-8') !== expected) issues.push(`${path} is out of date with the template.`);
+      if (readFileSync(path, 'utf-8') !== expected) issues.push(`${path} is out of date with its source.`);
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       issues.push(`${path} is missing.`);
@@ -189,11 +166,11 @@ function main() {
         process.exitCode = 1;
         return;
       }
-      console.log(`Generated skill and ${artifacts.size - 1} reference(s) are in sync with the template.`);
+      console.log(`All ${artifacts.size} generated artifacts are in sync with their sources.`);
       return;
     }
     writeGeneratedArtifacts(artifacts);
-    console.log(`Wrote the skill and ${artifacts.size - 1} reference(s) from the template.`);
+    console.log(`Wrote ${artifacts.size} skill artifacts from their sources.`);
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

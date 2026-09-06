@@ -24,14 +24,14 @@ problems originate in the shared template and generator-owned prose.
 5. Standardize phrasing, PR footer placement, delegation verification, and
    branch-neutral guard feedback.
 6. Reduce the entrypoint's context cost through generated, on-demand
-   references, while keeping shared procedures available inline to the
-   sibling project's existing variant renderer.
+   references. Template distribution is now superseded by
+   [Portable agent skill](../2026-09-05-portable-agent-skill/spec.md).
 
 ## Non-Goals
 
 - Changing hook detection or protected-branch enforcement policy.
 - Installing hooks, synchronizing personal installations, publishing a
-  release, or modifying the sibling repository.
+  release.
 - Adding a new runtime configuration engine or model router.
 
 ## Acceptance Criteria
@@ -48,8 +48,7 @@ problems originate in the shared template and generator-owned prose.
   stated content budget.
 - The skill and mechanical agent retain primary-agent review responsibility.
 - Generated reference files and their links are validated for presence and
-  freshness. The shared template remains usable by the existing variant
-  selection contract without reference distribution in the sibling repo.
+  freshness.
 - The core entrypoint is at most 12,000 characters (approximately 3,000
   tokens at characters / 4), retaining essential workflow constraints.
 - Existing repository quality gates and targeted generation checks pass.
