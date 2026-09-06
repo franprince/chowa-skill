@@ -66,6 +66,44 @@ supplies authorization for that scope; an existing PR-creation request does
 not require another approval question. Visual proof is experimental and
 requires an explicit user request or a standing project instruction.
 
+## Optional spec roast
+
+After drafting a feature spec, the skill offers once before planning:
+
+> Want a spec roast before planning? I’ll challenge the assumptions, edge
+> cases, and acceptance criteria. You can skip it or stop at any time.
+
+Accept to get focused rounds of one to three questions, with recommendations
+and tradeoffs. The agent researches available facts and writes your decisions
+into the spec. A short pass defaults to at most three rounds, followed by a
+summary for confirmation. Further rounds require your choice.
+
+Ask directly to “roast this spec” to opt in immediately. Decline to continue
+with normal clarification, or stop the interview whenever you want. An
+unanswered offer waits for your choice. The spec records progress so resuming
+work preserves your answers and does not repeat an accepted or declined offer.
+Existing approved plans and standalone commit/PR requests skip the offer.
+
+## Why one skill with procedure files?
+
+The entrypoint owns activation, authorization, and routing. Substantive
+instructions load from local references only at the relevant stage:
+
+| Procedure | Loaded when |
+|---|---|
+| Pipeline | Drafting specs, planning, or implementing authorized work |
+| Spec refinement | A spec roast is accepted or explicitly requested |
+| Delivery | Branch setup, commits, PR creation, or readiness review |
+| Delegation | Considering or requesting bounded mechanical delegation |
+| Hooks, visual proof, roadmap, language style | Their documented trigger applies |
+
+This keeps one self-contained installation across all three hosts. Separate
+skills are useful when a capability needs independent discovery and reuse
+outside this workflow. They are not required to defer loading a procedure, and
+would add installation dependencies and potentially overlapping triggers.
+Modularity reduces initial context; it does not guarantee that previously read
+instructions leave the conversation context.
+
 ## Optional hooks and helpers
 
 The workflow uses native file and shell tools plus `git` and, for GitHub PRs,
@@ -115,7 +153,7 @@ skill directory. Reference names must be safe basenames; blocks must end with
 `reference:end` and cannot nest. `--check` verifies every generated artifact,
 including missing files. Do not edit generated files directly.
 
-The core has a 12,000-character budget; optional procedures load only when
+The core has a 7,000-character budget; optional procedures load only when
 needed. Tests exercise documented host payloads, hook installation, and helpers
 from an isolated copy of the skill. Version metadata in
 `.claude-plugin/plugin.json` is updated by the release workflow on merge.

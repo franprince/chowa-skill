@@ -22,8 +22,8 @@ const FRONTMATTER = `---
 name: chowa-skill
 description: >
   Spec-driven development with durable plans, atomic Conventional Commits,
-  PR preparation and readiness checks, and bounded mechanical delegation.
-  Use for new features, specs, implementation plans, implementing approved
+  optional spec roasts, PR readiness checks, and bounded mechanical delegation.
+  Use for new features, specs or spec refinement, plans, implementing approved
   work, commits, PRs, mechanical delegation, or requested roadmap views.
   Check project or user opt-in before applying the workflow; otherwise
   follow repository conventions.

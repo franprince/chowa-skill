@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import {
   checkGeneratedArtifacts, generatedArtifacts, renderSkill, renderTemplate,
@@ -82,7 +82,7 @@ test('artifact checks detect stale and missing references as well as the main sk
 
 test('template exposes every generated reference through a resolvable main-body link', () => {
   const { body, references } = renderSkill(readFileSync(TEMPLATE, 'utf-8'));
-  assert.deepEqual(Object.keys(references).sort(), ['hooks', 'roadmap', 'simplified-english', 'visual-proof']);
+  assert.deepEqual(Object.keys(references).sort(), ['delegation', 'delivery', 'hooks', 'pipeline', 'roadmap', 'simplified-english', 'spec-refinement', 'visual-proof']);
   const linked = [...body.matchAll(/\]\(references\/([a-z0-9-]+)\.md\)/g)].map((match) => match[1]);
   assert.deepEqual([...new Set(linked)].sort(), Object.keys(references).sort());
   for (const content of Object.values(references)) {
@@ -94,5 +94,17 @@ test('template exposes every generated reference through a resolvable main-body 
 test('template generated artifacts are in sync and the entrypoint stays within its size budget', () => {
   const artifacts = generatedArtifacts(readFileSync(TEMPLATE, 'utf-8'));
   assert.deepEqual(checkGeneratedArtifacts(artifacts), [], 'Run: node scripts/generate-skill.mjs');
-  assert.ok([...artifacts.values()][0].length <= 12_000, 'Keep the main skill below 12,000 characters.');
+  assert.ok([...artifacts.values()][0].length <= 7_000, 'Keep the main skill below 7,000 characters.');
+});
+
+test('every local Markdown link resolves inside the standalone generated skill', () => {
+  const artifacts = generatedArtifacts(readFileSync(TEMPLATE, 'utf-8'));
+  for (const [path, content] of artifacts) {
+    if (!path.endsWith('.md')) continue;
+    for (const match of content.matchAll(/\]\(([^)#\s]+)(?:#[^)]*)?\)/g)) {
+      const target = match[1];
+      if (/^https?:\/\//.test(target)) continue;
+      assert.ok(artifacts.has(resolve(dirname(path), target)), `${path}: unresolved local link ${target}`);
+    }
+  }
 });

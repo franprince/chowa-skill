@@ -36,3 +36,4 @@ Chōwa Skill's spec → plan → execute pipeline persists every iteration's `sp
 | 2026-08-17 | [cross-harness-hook-guards](2026-08-17-cross-harness-hook-guards/spec.md) | Done | Fix the eight hook-layer audit findings; guards now run on Claude Code, Gemini CLI, and Codex |
 | 2026-09-05 | [skill-instruction-consistency](2026-09-05-skill-instruction-consistency/spec.md) | Done | Align workflow conditions and approval semantics; extract optional procedures to reduce entrypoint context |
 | 2026-09-05 | [portable-agent-skill](2026-09-05-portable-agent-skill/spec.md) | Done | Self-contained skill distribution and native Claude, Codex, and Gemini integration |
+| 2026-09-05 | [optional-spec-refinement](2026-09-05-optional-spec-refinement/spec.md) | Done | Thin skill entrypoint with on-demand procedures and an optional pre-planning spec roast |
