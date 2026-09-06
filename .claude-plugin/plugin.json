@@ -1,7 +1,7 @@
 {
   "name": "chowa-skill",
   "displayName": "Chōwa Skill",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Harmony from idea to pull request. A skill for Claude Code, Codex, and Gemini CLI: clear specs, optional spec roasts, practical plans, and changes you can review.",
   "author": {
     "name": "Fran",
