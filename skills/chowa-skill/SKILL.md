@@ -85,6 +85,14 @@ For implementation, use a topic branch, preserve unrelated changes, and follow
 project's applicable quality gates before claiming completion. Read
 [Delegation](references/delegation.md) only when considering that capability.
 
+Avoid adding comments to code. Prefer clear names and straightforward structure;
+put task explanations in the spec, PR, or conversation. Do not leave change
+narration, redundant explanations, or commented-out code. Add a concise comment
+only when explicitly requested, required by repository conventions or tooling,
+or essential to explain a non-obvious correctness constraint. Preserve existing
+useful comments unless the task calls for changing them. Include this rule in
+delegated task constraints.
+
 ### 1. Hook guards
 
 Installed guards request approval for recognized protected-branch pushes,
