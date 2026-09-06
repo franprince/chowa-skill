@@ -8,10 +8,10 @@
     {
       "name": "chowa-skill",
       "source": "./",
-      "description": "A spec → plan → execute skill for Claude Code, Codex, and Gemini CLI, with durable plans, atomic commits, PR workflows, and optional delegation."
+      "description": "Harmony from idea to pull request. A skill for Claude Code, Codex, and Gemini CLI: clear specs, optional spec roasts, practical plans, and changes you can review."
     }
   ],
   "metadata": {
-    "description": "Chōwa Skill for Claude Code, Codex, and Gemini CLI."
+    "description": "Chōwa Skill (調和) — harmony from idea to pull request."
   }
 }
