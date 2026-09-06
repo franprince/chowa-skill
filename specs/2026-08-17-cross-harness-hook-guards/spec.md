@@ -9,8 +9,7 @@
 An audit of the hook layer (`guard-push.mjs`, `guard-spec.mjs`,
 `hooks/hooks.json`) surfaced eight defects, two of them silent, plus a
 scope gap: the guards only exist for Claude Code, while the workflow
-itself is meant to be harness-neutral (the sibling `chowa` repo already
-syncs a provider-neutral skill to Gemini).
+itself is meant to work across hosts.
 
 Audit findings, in the order they were reported:
 

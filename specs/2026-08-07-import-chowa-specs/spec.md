@@ -1,36 +1,13 @@
-# Specification: Import Relevant Specs from Original Chōwa Repository
+# Historical specification records
 
-- **Date**: 2026-08-07
-- **Status**: Done
-- **Slug**: `import-chowa-specs`
+Status: Superseded by [Portable agent skill](../2026-09-05-portable-agent-skill/spec.md)
 
-## Problem Statement
+This historical record was condensed on 2026-09-05 to remove obsolete product
+requirements. Earlier implementation details remain available in Git history.
+The original date and link are retained for traceability.
 
-The `chowa-skill` repository was created as a sibling pure-skill variant of Chōwa. However, `chowa-skill` lacks the historical specification audit trail for the features and conventions it inherited from the original Chōwa repository (`franprince/chōwa`), such as plugin distribution, cross-repo skill source-of-truth, delegation, and opt-in detection.
+Retain dated records and stable index links. Superseded implementation details are summarized explicitly so obsolete requirements are not mistaken for current skill behavior.
 
-## Goals
-
-1. Import all relevant historical spec directories from `/home/fran/Documentos/repos/chōwa/specs/` into `specs/` in `chowa-skill`.
-2. Update `specs/INDEX.md` in `chowa-skill` to include imported historical specs alongside current local specs in chronological order.
-3. Preserve original spec files, dates, and status values without modifications.
-
-## Non-Goals
-
-- Importing CLI engine-only specs that are irrelevant to `chowa-skill` (e.g. CLI internal session ledger / quota resume daemon specs).
-
-## Relevant Specs to Import
-
-- `2026-08-01-plugin-distribution`
-- `2026-08-01-portable-global-skill-sync`
-- `2026-08-01-pr-type-templates`
-- `2026-08-01-routing-config-wiring`
-- `2026-08-02-widen-project-opt-in-detection`
-- `2026-08-02-mechanical-task-model-delegation`
-- `2026-08-04-cross-repo-skill-source-of-truth`
-- `2026-08-06-reverse-engineering-skill`
-
-## Acceptance Criteria
-
-- Specified directories copied to `specs/` under `chowa-skill`.
-- `specs/INDEX.md` reflects all imported specs and locally created specs sorted chronologically.
-- `node --test` passes cleanly.
+Current behavior and verification are documented in the linked specification,
+the root README, and the generated skill. This record does not claim that the
+retired implementation exists in this repository.

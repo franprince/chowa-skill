@@ -8,12 +8,9 @@
 
 ### 1. `templates/chowa-workflow.md` (source of truth — edit here, not `SKILL.md`)
 
-The `<!-- variant:shared -->` block titled `### Specification-Driven
-Pipeline (Spec → Plan → Execute)` (currently a 5-item numbered list: Stage
-0 Backlog, Stage 1 Spec, Stage 2 Plan, Persistence, Stage 3 Execute) is
-replaced in place with a 7-item numbered list. Item text stays `shared`
-throughout — none of the new items require a CLI command, so no
-`chowa-only` / `chowa-skill-only` split is introduced:
+Replace the Specification-Driven Pipeline list in the workflow template with
+these seven stages. This historical stage wording was later refined by the
+skill-instruction-consistency specification.
 
 ```markdown
 1. **Constitution Check (`specs/CONSTITUTION.md`)** — if this is the
@@ -127,7 +124,7 @@ this test is what catches it (as designed).
 
 - Read the regenerated `skills/chowa-skill/SKILL.md` end to end: confirm
   the `### ` numbering in the Specification-Driven Pipeline area is
-  sequential and no `chowa-only` content leaked in.
+  sequential and the workflow matches the source.
 - Exercise the guard: attempt to `Write` a root-level `tasks.md` in a
   scratch check and confirm the hook denies it with the updated message,
   then confirm `specs/2026-08-13-speckit-inspired-stages/tasks.md` is

@@ -9,6 +9,7 @@ const PAYLOADS = {
     cwd: '/home/user/project',
     hook_event_name: 'PreToolUse',
     permission_mode: 'default',
+    tool_use_id: 'toolu_claude',
     tool_name: 'Bash',
     tool_input: { command: 'git push origin main' },
   },
@@ -204,4 +205,21 @@ test('every dialect stays silent when nothing is blocked', () => {
   assert.equal(DIALECTS.gemini.render({ blocked: false }).stdout, '{}');
   assert.equal(DIALECTS.antigravity.render({ blocked: false }).stdout, '{}');
   assert.equal(DIALECTS.claude.render({ blocked: false }).stdout, '');
+});
+
+test('Gemini dir_path overrides legacy directory and normalizes relative or absolute paths', () => {
+  for (const [dir_path, expected] of [['packages/../api', '/project/api'], ['/other/repo', '/other/repo']]) {
+    const request = normalize({ cwd: '/project', tool_name: 'run_shell_command', tool_input: {
+      command: 'git push', dir_path, directory: 'ignored',
+    } }, DIALECTS.gemini);
+    assert.equal(request.cwd, expected);
+  }
+});
+
+test('Windows working directories retain their native path semantics', () => {
+  const request = normalize({ cwd: 'C:\\project', tool_name: 'run_shell_command', tool_input: {
+    command: 'git push', dir_path: 'packages\\..\\api',
+  } }, DIALECTS.gemini);
+  assert.equal(request.cwd, 'C:\\project\\api');
+  assert.equal(normalize({ tool_name: 'PowerShell', tool_input: {} }, DIALECTS.claude).isShellTool, true);
 });

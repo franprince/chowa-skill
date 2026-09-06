@@ -57,8 +57,6 @@ raw table by hand.
 - Publishing via any hosted/cloud mechanism (e.g. the `Artifact` tool) —
   this capability is 100% local: no upload, no network call, no
   claude.ai dependency.
-- A `chowa roadmap` CLI subcommand — that would require changes to the
-  separate CLI-backed `chowa` engine repository, out of scope here.
 - Aggregating roadmaps across multiple projects/repos — this reads one
   project's own `specs/INDEX.md`.
 - Automatic regeneration on every commit (e.g. via CI) — this is a
@@ -69,9 +67,7 @@ raw table by hand.
 
 ### 1. Workflow Template (`templates/chowa-workflow.md`)
 
-Add a new `<!-- variant:shared -->` section (works identically for CLI
-and skill modes — it only needs `Read`, `Write`, and a shell command to
-open the file, no CLI command) titled `### Roadmap Visualization`,
+Add a workflow section titled `### Roadmap Visualization`,
 documenting:
 
 - **Trigger**: user asks to see/visualize the roadmap, or present the

@@ -3,12 +3,10 @@
 ## Approach
 
 1. Rewrite `templates/chowa-workflow.md` around activation, task entry,
-   capability fallbacks, and the core workflow. Preserve the existing
-   `shared`, `chowa-only`, and `chowa-skill-only` variant contract.
+   capability fallbacks, and the core workflow.
 2. Keep hook setup, visual proof/Storybook, roadmap, and language-mode
-   procedures in shared template blocks marked for reference extraction.
-   Place links to extracted references only in the skill-only variant.
-   The sibling renderer continues to receive the procedures inline.
+   procedures in template blocks marked for reference extraction.
+   Place links to extracted references in the core skill.
 3. Update `scripts/generate-skill.mjs` to emit `SKILL.md` and
    `references/*.md` from the same template. Remove generator-owned prose
    duplication, shorten frontmatter, and validate all generated artifacts
@@ -89,6 +87,6 @@ The review found two clarity issues: PR preparation needed an explicit scope
 condition, and helper-root resolution needed to name the skill directory as
 its starting point. Both were corrected before final generation checks.
 
-Shared procedures remain inline under the sibling variant-selection contract;
-the external sibling renderer was not run or modified. No hooks were installed
-and no release or personal skill installation was updated.
+Template distribution and helper packaging are superseded by
+[Portable agent skill](../2026-09-05-portable-agent-skill/spec.md).
+No hooks were installed and no release or personal skill installation was updated.

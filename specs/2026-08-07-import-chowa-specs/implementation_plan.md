@@ -1,26 +1,13 @@
-# Implementation Plan: Import Relevant Specs from Original Chōwa Repository
+# Historical specification records — implementation record
 
-- **Date**: 2026-08-07
-- **Status**: Done
-- **Slug**: `import-chowa-specs`
+Status: Superseded by [Portable agent skill](../2026-09-05-portable-agent-skill/spec.md)
 
-## Proposed Changes
+This historical record was condensed on 2026-09-05 to remove obsolete product
+requirements. Earlier implementation details remain available in Git history.
+The original date and link are retained for traceability.
 
-### 1. Copy Spec Directories
-Copy the following directories from `/home/fran/Documentos/repos/chōwa/specs/` to `specs/`:
-- `2026-08-01-plugin-distribution`
-- `2026-08-01-portable-global-skill-sync`
-- `2026-08-01-pr-type-templates`
-- `2026-08-01-routing-config-wiring`
-- `2026-08-02-widen-project-opt-in-detection`
-- `2026-08-02-mechanical-task-model-delegation`
-- `2026-08-04-cross-repo-skill-source-of-truth`
-- `2026-08-06-reverse-engineering-skill`
+Retain dated records and stable index links. Superseded implementation details are summarized explicitly so obsolete requirements are not mistaken for current skill behavior.
 
-### 2. Update Spec Index (`specs/INDEX.md`)
-Merge historical spec index entries into `specs/INDEX.md` alongside current local specs (`guard-spec-hook`, `backlog-creation-step`, `import-chowa-specs`), ordered chronologically.
-
-## Verification Plan
-
-- Run `node --test` to ensure test suite passes.
-- Verify file existence under `specs/`.
+Current behavior and verification are documented in the linked specification,
+the root README, and the generated skill. This record does not claim that the
+retired implementation exists in this repository.

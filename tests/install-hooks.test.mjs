@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HARNESSES, install, loadSnippet, mergeHooks } from '../scripts/install-hooks.mjs';
+import { HARNESSES, install, loadSnippet, mergeHooks, quoteShellPath } from '../scripts/install-hooks.mjs';
 
 /** The definitions a snippet carries, whichever shape the harness uses. */
 function definitionsOf(snippet, harness) {
@@ -144,4 +144,26 @@ test('the antigravity merge leaves other named hooks alone', () => {
 
   assert.ok(merged['their-linter'].PostToolUse);
   assert.ok(merged['chowa-guards'].PreToolUse);
+});
+
+test('install rejects invalid scope before reading or writing configuration', () => {
+  assert.throws(() => install('codex', { scope: 'workspace' }), /Unknown scope/);
+});
+
+test('Codex user hooks respect CODEX_HOME', () => {
+  assert.equal(HARNESSES.codex.user({ CODEX_HOME: '/tmp/custom-codex-home' }), '/tmp/custom-codex-home/hooks.json');
+});
+
+test('merge preserves unrelated scripts with a generic guard filename', () => {
+  const theirs = { matcher: 'Bash', hooks: [{ type: 'command', command: 'node /other/scripts/guard.mjs' }] };
+  const merged = mergeHooks({ hooks: { PreToolUse: [theirs] } }, loadSnippet(HARNESSES.claude.snippet, '/opt/skill'), HARNESSES.claude);
+  assert.deepEqual(merged.hooks.PreToolUse[0], theirs);
+  assert.equal(merged.hooks.PreToolUse.length, 2);
+});
+
+test('Windows hook path quoting supports spaces and rejects shell expansion', () => {
+  assert.equal(quoteShellPath('C:/Skill Folder/scripts/guard.mjs', 'win32'), '"C:/Skill Folder/scripts/guard.mjs"');
+  for (const path of ['C:/%PATH%/guard.mjs', 'C:/!PATH!/guard.mjs', 'C:/bad"quote/guard.mjs']) {
+    assert.throws(() => quoteShellPath(path, 'win32'), /unsupported Windows shell characters/);
+  }
 });

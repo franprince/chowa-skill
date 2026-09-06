@@ -31,7 +31,7 @@
 
 ### Phase 2: Chōwa Main Harness Integration
 - Wire recommendation into Stage 1 of `chowa` SKILL.md.
-- Ensure `sync-skill.ts` handles multi-skill sync if applicable or syncs `chowa-discover` across canonical/self-hosted/portable paths.
+- Package any future discovery skill as a complete directory for native host skill discovery.
 
 ### Phase 3: Testing & Verification
 - Test running `chowa-discover` analysis on this codebase itself as a verification test.

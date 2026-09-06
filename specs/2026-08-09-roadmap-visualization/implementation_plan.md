@@ -8,7 +8,7 @@
 
 ### 1. `templates/chowa-workflow.md`
 
-Add a new `<!-- variant:shared -->` section titled `### Roadmap
+Add a workflow section titled `### Roadmap
 Visualization`, placed after the existing `### PR Description Generation`
 / Visual Proof sections and before the ASD-STE100 section, documenting:
 
@@ -32,11 +32,9 @@ Visualization`, placed after the existing `### PR Description Generation`
   (`xdg-open`/`open`/`start`). The path is reported back to the user; the
   generated HTML is never committed to the repo.
 
-This is a `variant:shared` block (not `chowa-only`/`chowa-skill-only`)
-because it needs only `Read`, `Write`, and a shell command, identical in
-both CLI and skill modes — matching how the Visual Proof section is
-structured. It does not use the `Artifact` tool: the capability is
-required to be 100% local, with no upload or network dependency.
+The procedure uses native file and shell tools. It produces a local file with
+no upload or network dependency. Its current source is an on-demand reference
+block in the workflow template.
 
 ### 2. Skill Regeneration
 

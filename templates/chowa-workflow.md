@@ -1,21 +1,7 @@
-<!--
-  Source of truth for the shared Chōwa workflow. This repository's generator
-  selects shared + chowa-skill-only blocks; the sibling chowa sync selects
-  shared + chowa-only blocks from this file at a pinned commit.
-
-  Variant blocks must be balanced and non-nested. Headings are unnumbered;
-  each renderer numbers its own workflow sections. Named reference blocks
-  remain ordinary inline Markdown for the sibling renderer. Our generator
-  extracts them into references/<name>.md, leaving only skill-only links in
-  the entrypoint. Keep each reference within one shared variant block.
--->
-
-<!-- variant:chowa-skill-only -->
 # Chōwa Skill
 
 Use the host's native tools and `git`/`gh` for spec → plan → execute work.
-No Chōwa CLI is required. Live provider routing and session auto-resume
-belong to the sibling Chōwa project.
+The workflow runs in Claude Code, Codex, and Gemini CLI.
 
 ## Activation
 
@@ -64,14 +50,11 @@ APIs. If a question tool is unavailable, ask in conversation. If task tracking
 is unavailable or redundant, use `tasks.md`; if delegation is unavailable,
 execute the task inline.
 
-Resolve references relative to this SKILL.md. For bundled scripts, locate the
-installation root containing `scripts/` (two levels above the directory
-containing SKILL.md in the plugin layout). Verify the script exists and use
-its absolute path with the target project as CWD. A copied skill without scripts cannot run those
-helpers; report the missing capability when needed.
-<!-- variant:end -->
+Resolve references and bundled `scripts/` relative to the directory containing
+this SKILL.md. Use verified absolute script paths with the target project as
+CWD. The complete skill directory includes its helpers and hook definitions;
+helpers require Node.js 22 or newer on PATH.
 
-<!-- variant:shared -->
 ## Workflow Rules
 
 ### Specification-Driven Pipeline
@@ -128,18 +111,9 @@ or `Superseded by <link>`. Keep the index and feature status consistent.
 
 ### Commits and Verification
 
-<!-- variant:end -->
-<!-- variant:chowa-only -->
-Use `chowa commit` for commit preparation. Review its proposed clusters by
-logical change; keep a function and its tests, or a document and its index
-entry, together when they form one independently understandable change.
-<!-- variant:end -->
-<!-- variant:chowa-skill-only -->
 Inspect `git status`, the working diff, and the staged diff. Group commits
 by logical change, keeping implementation/tests and linked documentation
 together. Write commit messages directly in the primary session.
-<!-- variant:end -->
-<!-- variant:shared -->
 
 Use Conventional Commits: `type(scope): imperative description`, following
 repository types and scope conventions. Run the project's required
@@ -160,12 +134,8 @@ Honor existing user authorization, but follow the host's permission decision
 when a guard intervenes. Guards do not infer conversational approval.
 Protection depends on installed adapters and recognized input shapes;
 malformed or unsupported payloads can defer to normal host permissions.
-<!-- variant:end -->
-<!-- variant:chowa-skill-only -->
 
 For hook installation or troubleshooting, read [Hook setup](references/hooks.md).
-<!-- variant:end -->
-<!-- variant:shared -->
 <!-- reference:hooks -->
 # Hook setup and troubleshooting
 
@@ -174,7 +144,7 @@ checks before tool execution. The repository ships these adapter definitions:
 
 | Harness | Project config | Event | Matched tools | Can ask |
 |---|---|---|---|---|
-| Claude Code | `.claude/settings.json` or plugin hooks | `PreToolUse` | `Bash`, `Write`, `Edit`, `NotebookEdit` | yes |
+| Claude Code | `.claude/settings.json` or plugin hooks | `PreToolUse` | `Bash`, `PowerShell`, `Write`, `Edit`, `NotebookEdit` | yes |
 | Gemini CLI | `.gemini/settings.json` | `BeforeTool` | `run_shell_command`, `write_file`, `replace` | no |
 | Codex | `.codex/hooks.json` | `PreToolUse` | `Bash`, `apply_patch` | no |
 | Antigravity | `.agents/hooks.json` | `PreToolUse` | `run_command`, `write_to_file`, `replace_file_content` | yes |
@@ -183,19 +153,34 @@ These are the shipped hook contracts; use the current host's available tools
 for ordinary workflow work. Confirm hook support during installation rather
 than assuming every host exposing a shell tool uses these event contracts.
 
-Resolve the plugin installation root containing `scripts/` and substitute its
-absolute path below. Run from the target project for project-scope installs:
+Resolve the skill directory containing SKILL.md and substitute its absolute
+path below. Run from the target project for project-scope installs:
 
 ```bash
-node /absolute/plugin-root/scripts/install-hooks.mjs --harness codex --scope project --dry-run
-node /absolute/plugin-root/scripts/install-hooks.mjs --harness codex --scope project
+node /absolute/skill-root/scripts/install-hooks.mjs --harness codex --scope project --dry-run
+node /absolute/skill-root/scripts/install-hooks.mjs --harness codex --scope project
 ```
 
 Choose `claude`, `gemini`, `codex`, or `antigravity` as appropriate. Omit
 `--scope project` for user configuration. The installer merges owned entries
 without replacing unrelated hooks. Claude Code plugin installation discovers
-`hooks/hooks.json` directly. A skill-only copy must have the bundled scripts
-available separately before these commands can run.
+`hooks/hooks.json` directly. Standalone skill installations require this
+explicit hook setup; skill discovery alone does not activate hooks.
+
+For Codex, review and trust the installed commands with `/hooks`; changed hook
+commands are skipped until trusted. Project configuration also requires project
+trust. User installs respect `CODEX_HOME` when set. Reload or restart the host
+when its settings require it, then confirm the hooks appear in its hook viewer.
+Gemini disables project hooks and workspace skill discovery in untrusted folders;
+review and trust the intended project through its normal trust flow.
+Codex canonicalizes shell calls to `Bash` and patch calls to `apply_patch`;
+Gemini uses `run_shell_command` with `dir_path` for its working directory.
+Claude includes `tool_use_id` too, so that field cannot identify Codex.
+
+Adapter contracts: [Claude Code](https://code.claude.com/docs/en/hooks),
+[Codex](https://learn.chatgpt.com/docs/hooks), and
+[Gemini CLI](https://geminicli.com/docs/hooks/reference/). Hooks inspect recognized
+commands and paths; they are workflow checks, not a complete shell sandbox.
 
 Recognized blocked actions use the host's rejection schema; unknown dialects
 fall back to exit code 2 and a reason on stderr. This does not guarantee that
@@ -207,9 +192,7 @@ Antigravity's no-opinion response is `{}` to retain normal host permissions.
 only for an explicitly authorized configuration change, such as an unattended
 workflow setup, not to work around a rejected tool call.
 <!-- reference:end -->
-<!-- variant:end -->
 
-<!-- variant:shared -->
 ### Mechanical Delegation
 
 Delegate a mechanical task only when its exact output or transformation rule
@@ -217,18 +200,10 @@ is known and its size/repetition justifies the extra call. Handle trivial
 edits inline. Keep unresolved design decisions in the primary session; follow
 repository guidance on model choice and the user's requests for direct work.
 
-<!-- variant:end -->
-<!-- variant:chowa-only -->
-Resolve the target with `chowa route --kind mechanical --complexity low`, then
-pass `target.model` as the model override to `chowa:chowa-mechanical` through
-the host's subagent capability. If that capability is unavailable, work inline.
-<!-- variant:end -->
-<!-- variant:chowa-skill-only -->
-Use the packaged `chowa-skill-mechanical` agent where supported. On another
-host, use its available subagent capability and a permitted economical model;
-otherwise work inline. No provider lookup or routing configuration is needed.
-<!-- variant:end -->
-<!-- variant:shared -->
+The optional Claude Code plugin supplies `chowa-skill-mechanical`. For a
+standalone skill or another host, use native delegation with a permitted model
+when available; otherwise execute inline. Never assume a named agent or model
+exists across hosts.
 
 Send the rule, owned files, relevant excerpts, constraints, and verification
 criteria. Avoid forwarding unrelated history; batch changes governed by the
@@ -239,15 +214,8 @@ the result; use the report to target further inspection.
 
 ### PR Descriptions
 
-<!-- variant:end -->
-<!-- variant:chowa-only -->
-Use `chowa pr --base <branch>` and review the resulting description.
-<!-- variant:end -->
-<!-- variant:chowa-skill-only -->
 Read `git log <base>..HEAD` and `git diff <base>...HEAD`, then write the PR
 description directly.
-<!-- variant:end -->
-<!-- variant:shared -->
 
 Describe the resulting behavior, material changes, and verification. Include
 a rollout/rollback plan for releases or hotfixes where relevant. End the PR
@@ -260,12 +228,8 @@ description with this footer, replacing any default assistant attribution:
 Experimental visual proof is enabled only by an explicit user request or a
 standing project instruction. UI file extensions alone do not enable it.
 
-<!-- variant:end -->
-<!-- variant:chowa-skill-only -->
 When enabled, read [Visual proof](references/visual-proof.md). Run the
 Storybook collector only when specifically requested for a Storybook UI.
-<!-- variant:end -->
-<!-- variant:shared -->
 <!-- reference:visual-proof -->
 # Visual proof and Storybook collection
 
@@ -287,11 +251,11 @@ Run the bundled collector only when the user explicitly requests visual proof
 for a Storybook-backed UI. General visual-proof opt-in or a styling diff does
 not automatically authorize running this collector.
 
-Keep the target project as CWD. Resolve the plugin root containing `scripts/`
+Keep the target project as CWD. Resolve the skill directory containing SKILL.md
 and substitute its verified absolute path:
 
 ```bash
-node /absolute/plugin-root/scripts/storybook-proof.mjs --base <base-ref>
+node /absolute/skill-root/scripts/storybook-proof.mjs --base <base-ref>
 ```
 
 The project must already have Storybook and Playwright configured. The helper
@@ -301,21 +265,15 @@ Markdown comparison table. Review its output and image accessibility before
 using the table in a PR. Report missing prerequisites; do not install them
 as an implied part of this procedure.
 <!-- reference:end -->
-<!-- variant:end -->
 
-<!-- variant:shared -->
 ### Optional Procedures
 
-<!-- variant:end -->
-<!-- variant:chowa-skill-only -->
 Read only the reference needed for the current request:
 
 - Requested roadmap or development history: [Roadmap](references/roadmap.md).
 - `ste100` enabled: [Simplified English](references/simplified-english.md).
   An explicit project setting overrides the personal preference; default off.
   Read the setting from `chowa.config.js` or personal preferences as data.
-<!-- variant:end -->
-<!-- variant:shared -->
 <!-- reference:roadmap -->
 # Roadmap visualization
 
@@ -359,4 +317,3 @@ to code, quotations, identifiers, or repository artifacts:
 This preference defines a concise writing style, not formal certification of
 compliance with the complete ASD-STE100 standard.
 <!-- reference:end -->
-<!-- variant:end -->

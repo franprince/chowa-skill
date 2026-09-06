@@ -12,8 +12,7 @@ description: >
 # Chōwa Skill
 
 Use the host's native tools and `git`/`gh` for spec → plan → execute work.
-No Chōwa CLI is required. Live provider routing and session auto-resume
-belong to the sibling Chōwa project.
+The workflow runs in Claude Code, Codex, and Gemini CLI.
 
 ## Activation
 
@@ -62,11 +61,10 @@ APIs. If a question tool is unavailable, ask in conversation. If task tracking
 is unavailable or redundant, use `tasks.md`; if delegation is unavailable,
 execute the task inline.
 
-Resolve references relative to this SKILL.md. For bundled scripts, locate the
-installation root containing `scripts/` (two levels above the directory
-containing SKILL.md in the plugin layout). Verify the script exists and use
-its absolute path with the target project as CWD. A copied skill without scripts cannot run those
-helpers; report the missing capability when needed.
+Resolve references and bundled `scripts/` relative to the directory containing
+this SKILL.md. Use verified absolute script paths with the target project as
+CWD. The complete skill directory includes its helpers and hook definitions;
+helpers require Node.js 22 or newer on PATH.
 
 ## Workflow Rules
 
@@ -157,9 +155,10 @@ is known and its size/repetition justifies the extra call. Handle trivial
 edits inline. Keep unresolved design decisions in the primary session; follow
 repository guidance on model choice and the user's requests for direct work.
 
-Use the packaged `chowa-skill-mechanical` agent where supported. On another
-host, use its available subagent capability and a permitted economical model;
-otherwise work inline. No provider lookup or routing configuration is needed.
+The optional Claude Code plugin supplies `chowa-skill-mechanical`. For a
+standalone skill or another host, use native delegation with a permitted model
+when available; otherwise execute inline. Never assume a named agent or model
+exists across hosts.
 
 Send the rule, owned files, relevant excerpts, constraints, and verification
 criteria. Avoid forwarding unrelated history; batch changes governed by the
