@@ -106,6 +106,12 @@ supplies authorization for that scope; an existing PR-creation request does
 not require another approval question. Visual proof is experimental and
 requires an explicit user request or a standing project instruction.
 
+Chōwa Skill and the CLI-backed [Chōwa](https://github.com/franprince/chowa)
+plugin activate on the same project signals, so a session with both loaded
+would otherwise have two workflows competing for each request. Only one leads:
+`chowa` when its CLI is installed or the project depends on it, and Chōwa Skill
+otherwise. The agent states once which one it is following.
+
 ## Optional spec roast
 
 After drafting a feature spec, the skill offers once before planning:

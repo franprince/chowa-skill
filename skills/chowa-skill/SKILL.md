@@ -33,6 +33,11 @@ When asked to enable always-on behavior, update only `alwaysOn` in the
 personal JSON file, preserving other keys. This preference applies when the
 skill is loaded; it does not install a session-start hook.
 
+If the CLI-backed Chōwa plugin's `chowa` skill is also loaded, let one
+workflow lead. Defer to `chowa` when the `chowa` command is on PATH or the
+project lists `chowa` as a dependency; otherwise this skill leads. Never
+combine both rule sets or run both pipelines; say once which one leads.
+
 ## Task entry and authorization
 
 Follow the user's requested scope and repository instructions. Resume an
