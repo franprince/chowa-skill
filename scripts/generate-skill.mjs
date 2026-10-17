@@ -21,12 +21,11 @@ export const GENERATED_SKILL = join(repoRoot, 'skills/chowa-skill/SKILL.md');
 const FRONTMATTER = `---
 name: chowa-skill
 description: >
-  Spec-driven development with durable plans, atomic Conventional Commits,
-  optional spec roasts, PR readiness checks, and bounded mechanical delegation.
-  Use for new features, specs or spec refinement, plans, implementing approved
-  work, commits, PRs, mechanical delegation, or requested roadmap views.
-  Check project or user opt-in before applying the workflow; otherwise
-  follow repository conventions.
+  Spec-driven workflow for projects that opt into Chōwa (specs/INDEX.md or
+  chowa.config.* at the root, or the user's always-on preference) or when the
+  user asks for it: specs and spec roasts, plans, implementing approved work,
+  Conventional Commits, PRs, mechanical delegation, and roadmap views. Without
+  opt-in, follow repository conventions instead.
 ---`;
 
 const SAFE_REFERENCE_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -52,10 +51,9 @@ function marker(line, kind) {
   return match[1];
 }
 
-/** Collapse prose spacing and number main-document headings, preserving code. */
-function formatMarkdown(markdown, numberHeadings = false) {
+/** Collapse prose spacing, preserving code. */
+function formatMarkdown(markdown) {
   let fence = null;
-  let heading = 0;
   let previousBlank = false;
   const lines = [];
   for (const line of markdown.split('\n')) {
@@ -72,7 +70,7 @@ function formatMarkdown(markdown, numberHeadings = false) {
       continue;
     }
     previousBlank = false;
-    lines.push(numberHeadings ? line.replace(/^### (.+)$/, (_, title) => `### ${++heading}. ${title}`) : line);
+    lines.push(line);
   }
   return lines.join('\n').trim();
 }
@@ -106,7 +104,7 @@ export function renderSkill(template) {
   }
 
   if (active !== null) throw new Error(`Unmatched reference start marker "${active}".`);
-  return { body: formatMarkdown(body.join('\n'), true), references };
+  return { body: formatMarkdown(body.join('\n')), references };
 }
 
 /** Preserve the original API for callers that only need the main body. */

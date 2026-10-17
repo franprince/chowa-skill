@@ -1,26 +1,27 @@
 # Chōwa Skill
 
 Use the host's native tools and `git`/`gh` for spec → plan → execute work.
-The workflow runs in Claude Code, Codex, and Gemini CLI.
 
 ## Activation
 
 On first use in a session, check the project root and read
-`~/.chowa-skill/preferences.json`. Reuse this context until the project or
-preferences change. Missing or unreadable preferences mean defaults.
+`~/.chowa-skill/preferences.json`; missing or unreadable preferences mean
+defaults. Reuse this context until the project or preferences change. When
+asked to enable always-on behavior, set only `"alwaysOn": true` in that file,
+preserving other keys.
 
-- Persistent opt-in: `specs/INDEX.md` or `chowa.config.js`,
-  `chowa.config.ts`, or `chowa.config.mjs` exists at the project root;
-  alternatively, personal preferences set `"alwaysOn": true`.
-- Conversation opt-in: the user explicitly requests this workflow here.
-  Hooks cannot read that request; they recognize it once the pipeline
-  creates `specs/INDEX.md`. Until then, enforce the agreed paths yourself.
-- Otherwise, follow the repository's conventions. Explain activation only
-  when relevant to the request; do not start this pipeline or create markers.
+The workflow applies when:
 
-When asked to enable always-on behavior, update only `alwaysOn` in the
-personal JSON file, preserving other keys. This preference applies when the
-skill is loaded; it does not install a session-start hook.
+- `specs/INDEX.md` or `chowa.config.js`, `chowa.config.ts`, or
+  `chowa.config.mjs` exists at the project root, or preferences set
+  `"alwaysOn": true` (persistent opt-in); or
+- the user explicitly requests this workflow in the conversation. Hooks
+  recognize this only once `specs/INDEX.md` exists; until then, keep spec
+  files in the agreed paths yourself.
+
+Otherwise, follow the repository's conventions for every request, including
+commits and PRs. Do not start the pipeline, create opt-in markers, or apply
+Chōwa defaults such as its PR footer. Explain activation only when relevant.
 
 If the CLI-backed Chōwa plugin's `chowa` skill is also loaded, let one
 workflow lead. Defer to `chowa` when the `chowa` command is on PATH or the
@@ -43,74 +44,53 @@ existing feature from its current artifacts; avoid restarting approved stages.
 
 Spec and plan approval are checkpoints, not repeated questions. If the user
 already authorized the same scope, including a request to plan and implement,
-record that authorization and proceed. Ask only for an outstanding decision
-or approval; prepare the concrete artifacts before asking. Material scope
-changes require renewed agreement.
+record that authorization and proceed; this also covers resumption. Ask only
+for an outstanding decision or approval, after preparing the concrete
+artifacts. Material scope changes require renewed agreement. Approval to
+create a PR or to run an interview never implies approval to merge or build.
 
 ## Host capabilities
 
 Procedures name capabilities, not tools: `ask_user`, `track_tasks`,
-`delegate`, `run_shell`, and `edit_files`. Use this host's equivalent, or the
-fallback in [Host capabilities](references/host-capabilities.md) when it has
-none. A missing tool never blocks the workflow.
+`delegate`, `run_shell`, and `edit_files`. Use this host's equivalent or the
+fallback in [Host capabilities](references/host-capabilities.md); a missing
+tool never blocks the workflow.
 
-Resolve each Markdown link relative to the file containing that link. Resolve
-bundled `scripts/` relative to the directory containing this SKILL.md. Use
-verified absolute script paths with the target project as CWD. The complete skill directory includes its helpers and hook definitions;
-helpers require Node.js 22 or newer on PATH.
+Resolve Markdown links relative to the file containing them and bundled
+`scripts/` relative to this SKILL.md's directory. Run helpers by verified
+absolute path with the target project as CWD; they need Node.js 22+ on PATH.
+Run them without reading their source unless you are debugging a helper.
 
 ## Routing and shared constraints
 
-Read only the procedure needed for the current stage. Follow its links when a
-transition or optional choice requires another procedure; do not preload them
-all. References are local instructions for this agent, not separate agent calls
-or dependencies on installed skills. Already-read instructions may remain in
-the host's conversation context; modularity defers loading but does not guarantee
-that earlier instructions are unloaded.
-
-Honor the requested boundary: spec-only and plan-only work stops there. Use the
-existing feature directory and durable checklist on resumption. The pipeline
-owns the optional refinement offer before first-time planning; accepting it
-loads the refinement procedure, and declining it preserves normal clarification.
+Read only the procedure needed for the current stage; follow its links when a
+transition requires another. Do not preload them all. Honor the requested
+boundary: spec-only and plan-only work stops there.
 
 For implementation, use a topic branch, preserve unrelated changes, and follow
-[Delivery](references/delivery.md) for repository branch conventions. Run the
-project's applicable quality gates before claiming completion. Read
-[Delegation](references/delegation.md) only when considering that capability.
+[Delivery](references/delivery.md) for branch conventions. Run the project's
+applicable quality gates before claiming completion.
 
-Avoid adding comments to code. Prefer clear names and straightforward structure;
-put task explanations in the spec, PR, or conversation. Do not leave change
-narration, redundant explanations, or commented-out code. Add a concise comment
-only when explicitly requested, required by repository conventions or tooling,
-or essential to explain a non-obvious correctness constraint. Preserve existing
-useful comments unless the task calls for changing them. Include this rule in
-delegated task constraints.
+Do not add code comments unless requested, required by repository conventions
+or tooling, or needed to explain a non-obvious correctness constraint. Leave
+no change narration or commented-out code; keep useful existing comments.
+Pass this rule on in delegated task constraints.
 
 ### Hook guards
 
-Installed guards request approval for recognized protected-branch pushes,
-deletes, and merges, or deny where the host cannot ask. Push/merge protection
-applies in every project. Spec-location protection applies to persistent
-opt-in signals: the index, a `chowa.config.js`/`.ts`/`.mjs` file, or personal
-`alwaysOn`. It rejects root-level `spec.md`, `implementation_plan.md`, and
-`tasks.md`; move these into the feature's dated directory.
-
-Honor existing user authorization, but follow the host's permission decision
-when a guard intervenes. Guards do not infer conversational approval.
-Protection depends on installed adapters and recognized input shapes;
-malformed or unsupported payloads can defer to normal host permissions.
-
-For hook installation or troubleshooting, read [Hook setup](references/hooks.md).
+Keep `spec.md`, `implementation_plan.md`, and `tasks.md` in the feature's
+dated directory; guards in opted-in projects reject them at the root. When a
+guard asks or denies, follow the host's permission decision. For guard
+behavior, installation, or troubleshooting, read [Hook setup](references/hooks.md).
 
 ### Optional procedures
 
-- Explicit visual-proof request or a standing project instruction: read
-  [Visual proof](references/visual-proof.md). File extensions alone do not
-  enable it; the Storybook collector needs its own explicit request.
+- Visual proof, only on an explicit request or a standing project instruction
+  (UI file types alone do not count): read [Visual proof](references/visual-proof.md).
 - Requested roadmap or development history: read [Roadmap](references/roadmap.md).
-- `ste100` enabled: read [Simplified English](references/simplified-english.md).
-  An explicit project setting overrides the personal preference; default off.
-  Read the setting from `chowa.config.js` or personal preferences as data.
+- `ste100` enabled (a project `chowa.config.js` boolean overrides the personal
+  preference; default off; read both as data): read
+  [Simplified English](references/simplified-english.md).
 
 <!-- reference:host-capabilities -->
 # Host capabilities
@@ -147,7 +127,10 @@ they do rather than by name.
 # Hook setup and troubleshooting
 
 The bundled dispatcher `scripts/guard.mjs` runs push/merge and spec-location
-checks before tool execution. The repository ships these adapter definitions:
+checks before tool execution. Push/merge protection applies in every project
+and asks for approval of recognized protected-branch pushes, deletes, and
+merges, or denies where the host cannot ask. Spec-location protection applies
+only with persistent opt-in. Guards do not infer conversational approval.
 
 | Harness | Project config | Event | Matched tools | Can ask |
 |---|---|---|---|---|
@@ -156,44 +139,33 @@ checks before tool execution. The repository ships these adapter definitions:
 | Codex | `.codex/hooks.json` | `PreToolUse` | `Bash`, `apply_patch` | no |
 | Antigravity | `.agents/hooks.json` | `PreToolUse` | `run_command`, `write_to_file`, `replace_file_content` | yes |
 
-These are the shipped hook contracts; use the current host's available tools
-for ordinary workflow work. Confirm hook support during installation rather
-than assuming every host exposing a shell tool uses these event contracts.
-
-Resolve the skill directory containing SKILL.md and substitute its absolute
-path below. Run from the target project for project-scope installs:
+Confirm hook support during installation rather than assuming every host with
+a shell tool uses these event contracts. Substitute the absolute skill
+directory below and run from the target project for project-scope installs:
 
 ```bash
 node /absolute/skill-root/scripts/install-hooks.mjs --harness codex --scope project --dry-run
 node /absolute/skill-root/scripts/install-hooks.mjs --harness codex --scope project
 ```
 
-Choose `claude`, `gemini`, `codex`, or `antigravity` as appropriate. Omit
-`--scope project` for user configuration. The installer merges owned entries
-without replacing unrelated hooks. Claude Code plugin installation discovers
-`hooks/hooks.json` directly. Standalone skill installations require this
-explicit hook setup; skill discovery alone does not activate hooks.
+Choose `claude`, `gemini`, `codex`, or `antigravity`. Omit `--scope project`
+for user configuration. The installer merges owned entries without replacing
+unrelated hooks. Claude Code plugin installation discovers `hooks/hooks.json`
+directly; standalone skill installations need this explicit setup.
 
 For Codex, review and trust the installed commands with `/hooks`; changed hook
-commands are skipped until trusted. Project configuration also requires project
-trust. User installs respect `CODEX_HOME` when set. Reload or restart the host
-when its settings require it, then confirm the hooks appear in its hook viewer.
-Gemini disables project hooks and workspace skill discovery in untrusted folders;
-review and trust the intended project through its normal trust flow.
-Codex canonicalizes shell calls to `Bash` and patch calls to `apply_patch`;
-Gemini uses `run_shell_command` with `dir_path` for its working directory.
-Claude includes `tool_use_id` too, so that field cannot identify Codex.
+commands are skipped until trusted, and project configuration also requires
+project trust. User installs respect `CODEX_HOME`. Gemini disables project
+hooks and workspace skill discovery in untrusted folders. Reload or restart
+the host when required, then confirm the hooks appear in its hook viewer.
 
 Adapter contracts: [Claude Code](https://code.claude.com/docs/en/hooks),
 [Codex](https://learn.chatgpt.com/docs/hooks), and
-[Gemini CLI](https://geminicli.com/docs/hooks/reference/). Hooks inspect recognized
-commands and paths; they are workflow checks, not a complete shell sandbox.
-
-Recognized blocked actions use the host's rejection schema; unknown dialects
-fall back to exit code 2 and a reason on stderr. This does not guarantee that
-an unknown payload shape is recognized or that an unknown host handles that
-exit code. The guards intentionally defer on parsing/normalization failures.
-Antigravity's no-opinion response is `{}` to retain normal host permissions.
+[Gemini CLI](https://geminicli.com/docs/hooks/reference/). Hooks are workflow
+checks, not a shell sandbox. Blocked actions use the host's rejection schema;
+unknown dialects get exit code 2 with a reason on stderr. Guards defer to
+normal host permissions on malformed or unrecognized payloads; Antigravity's
+no-opinion response is `{}`.
 
 `CHOWA_GUARDS=off` disables both guards (`0` and `false` also work). Use this
 only for an explicitly authorized configuration change, such as an unattended
@@ -203,10 +175,9 @@ workflow setup, not to work around a rejected tool call.
 <!-- reference:visual-proof -->
 # Visual proof and Storybook collection
 
-Apply this procedure only when the user requests visual proof or project
-instructions require it. Within that scope, include `### Visual Proof` after
-`### Summary` in the PR description. Attach actual rendered evidence for
-visual changes. For non-visual changes, write `N/A (non-visual change)`.
+Include `### Visual Proof` after `### Summary` in the PR description. Attach
+actual rendered evidence for visual changes. For non-visual changes, write
+`N/A (non-visual change)`.
 
 Styling, frontend components, graphic assets, layout templates, and themes
 are candidates for visual review; inspect the actual diff. A behavior-only
@@ -219,10 +190,8 @@ placeholder images. Upload only within the user's authorized scope.
 
 Run the bundled collector only when the user explicitly requests visual proof
 for a Storybook-backed UI. General visual-proof opt-in or a styling diff does
-not automatically authorize running this collector.
-
-Keep the target project as CWD. Resolve the skill directory containing SKILL.md
-and substitute its verified absolute path:
+not authorize it. Keep the target project as CWD and substitute the verified
+absolute skill directory:
 
 ```bash
 node /absolute/skill-root/scripts/storybook-proof.mjs --base <base-ref>
@@ -263,28 +232,23 @@ the file path. Do not upload or publish it without a separate request.
 <!-- reference:simplified-english -->
 # Simplified English (ste100 preference)
 
-Enable this conversation style when `ste100: true` is set in personal
-`~/.chowa-skill/preferences.json` or `chowa.config.js`. An explicit project
-boolean overrides the personal value; otherwise use the personal value,
-defaulting to false. Follow an explicit user language/style request first.
-
-These STE100-inspired rules apply to conversation prose, not automatically
-to code, quotations, identifiers, or repository artifacts:
+Follow an explicit user language or style request first. These
+STE100-inspired rules apply to conversation prose, not automatically to code,
+quotations, identifiers, or repository artifacts:
 
 - Use active voice and start procedural instructions with imperative verbs.
 - Limit procedural sentences to 20 words and descriptive sentences to 25.
 - Put one instruction in each sentence; number sequential procedures.
 - Use plain technical words and avoid idioms and ambiguous jargon.
 
-This preference defines a concise writing style, not formal certification of
-compliance with the complete ASD-STE100 standard.
+This is a concise writing style, not certified ASD-STE100 compliance.
 <!-- reference:end -->
 
 <!-- reference:pipeline -->
 # Specification, planning, and execution
 
 Use these stages for features and non-trivial changes, within the requested
-scope. Existing authorization covers the same stage and scope on resumption.
+scope.
 
 1. **Project principles:** read `specs/CONSTITUTION.md` if present. Before a
    project's first spec, offer to draft it without blocking the task. Flag
@@ -294,20 +258,19 @@ scope. Existing authorization covers the same stage and scope on resumption.
 3. **Spec:** write the problem, goals, non-goals, relevant inputs/outputs,
    edge cases, and acceptance criteria. Resolve ambiguities that affect
    scope or acceptance; state reasonable implementation assumptions. Obtain
-   approval before planning unless that scope is already authorized. Before the
-   first planning transition, follow the refinement choice below.
+   approval before planning unless that scope is already authorized, then
+   apply the refinement choice below.
 4. **Plan and tasks:** describe files, components, and verification in
    `implementation_plan.md`; create `tasks.md` with concrete checkable items
-   and their dependencies. Review both together before coding, using existing
-   authorization where applicable.
+   and their dependencies. Review both together before coding.
 5. **Coverage:** for complex changes, map acceptance criteria to plan/tasks
    before execution. Correct routine omissions within scope; raise unresolved
    requirements or scope changes with the user.
 6. **Execute and verify:** implement the plan, check off tasks as completed,
    and run applicable project quality gates. For commits or PRs, read
-   [Delivery](delivery.md). For worthwhile, authorized mechanical delegation,
-   read [Delegation](delegation.md). Mirror tasks with `track_tasks`
-   only when useful. Resume from the durable checklist after interruption.
+   [Delivery](delivery.md). For worthwhile, authorized mechanical delegation, read
+   [Delegation](delegation.md). Mirror tasks with `track_tasks` only when
+   useful. Resume from the durable checklist after interruption.
 
 Persist `spec.md`, `implementation_plan.md`, and `tasks.md` under
 `specs/<YYYY-MM-DD>-<slug>/`. Create or update `specs/INDEX.md` with a
@@ -317,30 +280,28 @@ or `Superseded by <link>`. Keep the index and feature status consistent.
 
 ## Optional refinement before planning
 
-After drafting a new feature spec, offer once before starting its implementation
-plan: “Want a spec roast before planning? I’ll challenge the assumptions, edge
-cases, and acceptance criteria. You can skip it or stop at any time.”
-
-Ask with `ask_user`.
-Offer “Roast the spec” and “Continue to planning” as choices. An explicit roast
+Before first-time planning of a spec with no recorded refinement choice, offer
+once: “Want a spec roast before planning? I’ll challenge the assumptions, edge
+cases, and acceptance criteria. You can skip it or stop at any time.” Offer
+“Roast the spec” and “Continue to planning” as choices. An explicit roast
 request already opts in; an explicit skip or request for no optional questions
-already opts out. Record the choice under `## Spec refinement` in the feature
-spec. If an offer is unanswered, record `pending` and wait before planning;
-continue only independent fact-finding. Do not infer a choice from silence.
+already opts out. An already approved plan skips the offer unless the user
+asks to refine its spec. If the user only requested a spec, stop there and
+offer when planning is later requested.
 
-On acceptance, record `active` and read [Spec refinement](spec-refinement.md).
-On decline, record `declined` and continue within the authorized scope, resolving
-any essential blockers through normal clarification. If the user only requested
-a spec, stop at that scope boundary; offer when planning is later requested.
+Record the choice under `## Spec refinement` in the feature spec:
 
-An existing draft with no refinement choice receives the offer when first-time
-planning is requested. On resumption, keep an unanswered offer `pending`; for
-`active`, load the refinement procedure and resume its outstanding questions or
-confirmation before planning. Do not re-offer after `declined`,
-`completed`, or `stopped`; revisit only on an explicit request. An already
-approved plan skips this offer unless the user asks to refine its spec. A
-newly discovered ambiguity still receives ordinary clarification. Recording a
-roast choice is not a replacement for the task's existing approval rules.
+| State | Meaning |
+|---|---|
+| `pending` | Offer unanswered; wait before planning, continuing only independent fact-finding. Never infer a choice from silence |
+| `active` | Read [Spec refinement](spec-refinement.md) and resume its outstanding questions or confirmation before planning |
+| `declined` | Continue to planning; resolve essential blockers through ordinary clarification |
+| `completed` | Updated spec confirmed; continue within existing authorization |
+| `stopped` | User ended the interview; do not restart without a request |
+
+Do not re-offer after `declined`, `completed`, or `stopped`. Newly discovered
+ambiguity still receives ordinary clarification, and a roast choice never
+replaces the task's approval rules.
 <!-- reference:end -->
 
 <!-- reference:delivery -->
@@ -364,8 +325,7 @@ relevant history, and applicable project instructions.
   readiness. Report unavailable remote checks without inventing freshness.
 - When PR preparation is within scope, create or update it if requested or
   already authorized. Otherwise, prepare its title/body and ask once before
-  publishing it. Authorization to create a PR does not itself authorize
-  merging it.
+  publishing it.
 - Use `gh pr create` / `gh pr edit`. Check mergeability with
   `gh pr view <n> --json mergeable,mergeStateStatus` and required checks with
   `gh pr checks <n>`. Resolve base conflicts on the topic branch, verify,
@@ -391,17 +351,14 @@ description directly.
 
 Describe the resulting behavior, material changes, and verification. Include
 a rollout/rollback plan for releases or hotfixes where relevant. End the PR
-description with this footer, replacing any default assistant attribution:
+description with this footer in place of any default assistant attribution,
+unless the user, repository, or host requires a specific attribution:
 
 ```text
 調和 (Chōwa) — spec → plan → execute, verified before merge
 ```
 
-Experimental visual proof is enabled only by an explicit user request or a
-standing project instruction. UI file extensions alone do not enable it.
-
-When enabled, read [Visual proof](visual-proof.md). Run the
-Storybook collector only when specifically requested for a Storybook UI.
+When visual proof is enabled, follow [Visual proof](visual-proof.md).
 <!-- reference:end -->
 
 <!-- reference:delegation -->
@@ -442,20 +399,11 @@ answers its offer; ask only for missing information needed to draft the spec.
 Persist it in `specs/<YYYY-MM-DD>-<slug>/spec.md` and update `specs/INDEX.md`.
 Refinement alone does not authorize an implementation plan or code changes.
 
-Record `Status: active` on explicit acceptance. Keep only the current round,
-settled decisions, explicit assumptions, deferred scope, and unanswered blockers;
-do not copy the full interview transcript. Use these states consistently:
-
-| State | Meaning on resumption |
-|---|---|
-| `pending` | Offer awaiting an answer; do not start the interview or plan |
-| `active` | Resume from the unanswered questions or spec confirmation |
-| `declined` | Skip the optional interview; preserve ordinary clarification |
-| `completed` | Updated spec confirmed; continue within existing authorization |
-| `stopped` | User ended the interview; do not restart without a request |
-
-An explicit request to begin overrides a previous declined or stopped state.
-Do not repeat questions whose answers are already recorded.
+Record `active` on acceptance, `completed` once the updated spec is confirmed,
+and `stopped` if the user ends the interview. An explicit request to begin
+overrides a previous `declined` or `stopped` state. Keep only the current
+round, settled decisions, explicit assumptions, deferred scope, and unanswered
+blockers; do not copy the transcript or repeat answered questions.
 
 ## Focused challenge rounds
 
@@ -505,11 +453,10 @@ that same revision. Keep the state `active` until confirmed, then set `completed
 
 If refinement changes requirements covered by an existing plan, mark affected
 plan/tasks for revision before execution. Earlier approval does not make a stale
-plan current; resolve material scope changes using the shared authorization rules.
+plan current; material scope changes need renewed agreement.
 
 Continue with [Pipeline](pipeline.md) only if planning or implementation is
-already requested or authorized. Otherwise return the refined spec and stop.
-Do not re-request an approval that this confirmation or an earlier instruction
-already supplies, and do not treat interview consent as authorization to build.
-
+already requested or authorized; otherwise return the refined spec and stop.
+Do not re-request approval this confirmation or an earlier instruction already
+supplies.
 <!-- reference:end -->

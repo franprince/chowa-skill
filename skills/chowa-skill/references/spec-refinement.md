@@ -14,20 +14,11 @@ answers its offer; ask only for missing information needed to draft the spec.
 Persist it in `specs/<YYYY-MM-DD>-<slug>/spec.md` and update `specs/INDEX.md`.
 Refinement alone does not authorize an implementation plan or code changes.
 
-Record `Status: active` on explicit acceptance. Keep only the current round,
-settled decisions, explicit assumptions, deferred scope, and unanswered blockers;
-do not copy the full interview transcript. Use these states consistently:
-
-| State | Meaning on resumption |
-|---|---|
-| `pending` | Offer awaiting an answer; do not start the interview or plan |
-| `active` | Resume from the unanswered questions or spec confirmation |
-| `declined` | Skip the optional interview; preserve ordinary clarification |
-| `completed` | Updated spec confirmed; continue within existing authorization |
-| `stopped` | User ended the interview; do not restart without a request |
-
-An explicit request to begin overrides a previous declined or stopped state.
-Do not repeat questions whose answers are already recorded.
+Record `active` on acceptance, `completed` once the updated spec is confirmed,
+and `stopped` if the user ends the interview. An explicit request to begin
+overrides a previous `declined` or `stopped` state. Keep only the current
+round, settled decisions, explicit assumptions, deferred scope, and unanswered
+blockers; do not copy the transcript or repeat answered questions.
 
 ## Focused challenge rounds
 
@@ -77,9 +68,9 @@ that same revision. Keep the state `active` until confirmed, then set `completed
 
 If refinement changes requirements covered by an existing plan, mark affected
 plan/tasks for revision before execution. Earlier approval does not make a stale
-plan current; resolve material scope changes using the shared authorization rules.
+plan current; material scope changes need renewed agreement.
 
 Continue with [Pipeline](pipeline.md) only if planning or implementation is
-already requested or authorized. Otherwise return the refined spec and stop.
-Do not re-request an approval that this confirmation or an earlier instruction
-already supplies, and do not treat interview consent as authorization to build.
+already requested or authorized; otherwise return the refined spec and stop.
+Do not re-request approval this confirmation or an earlier instruction already
+supplies.

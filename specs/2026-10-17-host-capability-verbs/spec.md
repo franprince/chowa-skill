@@ -20,7 +20,7 @@ across hosts in `scripts/lib/harness.mjs`; the instructions had no equivalent.
 2. One on-demand reference defines each capability, its fallback, and the
    verified per-host tool names.
 3. A missing tool never blocks the workflow; every capability has a fallback.
-4. The entrypoint does not grow.
+4. The entrypoint stays within its size budget.
 
 ## Non-Goals
 
@@ -34,7 +34,7 @@ across hosts in `scripts/lib/harness.mjs`; the instructions had no equivalent.
   from the entrypoint's Host capabilities section.
 - Pipeline, delegation, and spec-refinement procedures use capability names.
 - Mappings note that Codex's `update_plan` is opt-in since Codex CLI 0.152.0.
-- The entrypoint stays within its 7,000-character budget and does not grow.
+- The entrypoint stays within its 5,500-character budget.
 - `node --test` and `node scripts/generate-skill.mjs --check` pass.
 
 ## Inspiration

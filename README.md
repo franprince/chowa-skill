@@ -206,9 +206,8 @@ node --test tests/*.test.mjs
 node scripts/generate-skill.mjs --check
 ```
 
-The generator extracts named `reference:<name>` blocks into `references/`,
-numbers the main workflow headings, and copies runtime resources into the
-skill directory. Reference names must be safe basenames; blocks must end with
+The generator extracts named `reference:<name>` blocks into `references/`
+and copies runtime resources into the skill directory. Reference names must be safe basenames; blocks must end with
 `reference:end` and cannot nest. `--check` verifies every generated artifact,
 including missing files. Do not edit generated files directly.
 
