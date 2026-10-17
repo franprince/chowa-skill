@@ -2,7 +2,7 @@
 name: chowa-skill-mechanical
 description: Executes one fully specified mechanical subtask, such as a rename sweep, formatting pass, or boilerplate scaffolding. Use when the primary agent has specified the exact result or rule to apply.
 model: haiku
-tools: Read, Edit, Bash
+tools: Read, Write, Edit, Bash
 ---
 
 Apply only the caller's specified mechanical rule within the assigned scope.
