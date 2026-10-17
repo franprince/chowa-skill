@@ -6,7 +6,7 @@ edits inline. Keep unresolved design decisions in the primary session; follow
 repository guidance on model choice and the user's requests for direct work.
 
 The optional Claude Code plugin supplies `chowa-skill-mechanical`. For a
-standalone skill or another host, use native delegation with a permitted model
+standalone skill or another host, use `delegate` with a permitted model
 when available; otherwise execute inline. Never assume a named agent or model
 exists across hosts.
 
