@@ -38,3 +38,4 @@ Chōwa Skill's spec → plan → execute pipeline persists every iteration's `sp
 | 2026-09-05 | [portable-agent-skill](2026-09-05-portable-agent-skill/spec.md) | Done | Self-contained skill distribution and native Claude, Codex, and Gemini integration |
 | 2026-09-05 | [optional-spec-refinement](2026-09-05-optional-spec-refinement/spec.md) | Done | Thin skill entrypoint with on-demand procedures and an optional pre-planning spec roast |
 | 2026-09-05 | [reliable-automatic-versioning](2026-09-05-reliable-automatic-versioning/spec.md) | Done | Recover verified release boundaries and publish annotated tags for correct automatic SemVer |
+| 2026-10-17 | [host-capability-verbs](2026-10-17-host-capability-verbs/spec.md) | Done | Procedures name host capabilities with fallbacks and verified per-host tool mappings |

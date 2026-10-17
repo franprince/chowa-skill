@@ -49,8 +49,7 @@ problems used only to prolong the interview.
    it matters and a recommended answer with its tradeoff. Label recommendations
    as proposals, not agreed requirements. Defer questions that depend on an
    unanswered choice to a later round.
-4. Use the host's question tool where available, otherwise numbered questions in
-   conversation. Wait for answers before dependent questions or planning.
+4. Ask with `ask_user`; its fallback is numbered questions in conversation. Wait for answers before dependent questions or planning.
    Research independent facts while waiting; do not guess the user's decisions.
 5. Update the actual requirements and acceptance criteria after each answered
    round. Record intentional exclusions and assumptions explicitly, and keep

@@ -44,11 +44,10 @@ changes require renewed agreement.
 
 ## Host capabilities
 
-Use the available file, shell, question, and subagent tools. Claude tool names
-such as `AskUserQuestion`, `TaskCreate`, and `Agent` are examples, not required
-APIs. If a question tool is unavailable, ask in conversation. If task tracking
-is unavailable or redundant, use `tasks.md`; if delegation is unavailable,
-execute the task inline.
+Procedures name capabilities, not tools: `ask_user`, `track_tasks`,
+`delegate`, `run_shell`, and `edit_files`. Use this host's equivalent, or the
+fallback in [Host capabilities](references/host-capabilities.md) when it has
+none. A missing tool never blocks the workflow.
 
 Resolve each Markdown link relative to the file containing that link. Resolve
 bundled `scripts/` relative to the directory containing this SKILL.md. Use
@@ -107,6 +106,37 @@ For hook installation or troubleshooting, read [Hook setup](references/hooks.md)
 - `ste100` enabled: read [Simplified English](references/simplified-english.md).
   An explicit project setting overrides the personal preference; default off.
   Read the setting from `chowa.config.js` or personal preferences as data.
+
+<!-- reference:host-capabilities -->
+# Host capabilities
+
+Procedures in this skill name a capability, never a host's tool. Map each one
+to the current host's tool when it has one; otherwise use the fallback. Never
+stop because a named tool is absent, and never assume one host has a tool
+because another does.
+
+| Capability | Use it to | Fallback |
+|---|---|---|
+| `ask_user` | Offer a discrete choice or request an approval | Ask in conversation with numbered options, then wait for the answer |
+| `track_tasks` | Show in-session progress on `tasks.md` items | Keep `tasks.md` current; it stays the durable record either way |
+| `delegate` | Hand a qualifying mechanical task to a subagent | Do the work inline |
+| `run_shell` | Run `git`, `gh`, bundled helpers, and quality gates | Ask the user to run the command and share its output |
+| `edit_files` | Create and change files | Give the user the exact change to apply |
+
+## Known mappings
+
+| Capability | Claude Code | Codex | Gemini CLI | Antigravity |
+|---|---|---|---|---|
+| `ask_user` | `AskUserQuestion` | — | — | — |
+| `track_tasks` | `TaskCreate` (older: `TodoWrite`) | `update_plan`, when enabled | `write_todos` | — |
+| `delegate` | `Agent` | — | — | — |
+| `run_shell` | `Bash` | — | `run_shell_command` | `run_command` |
+| `edit_files` | `Write`, `Edit` | `apply_patch` | `write_file`, `replace` | `write_to_file`, `replace_file_content` |
+
+A dash means no mapping is recorded here, not that the host lacks the
+capability. On any host, and for any host not listed, match tools by what
+they do rather than by name.
+<!-- reference:end -->
 
 <!-- reference:hooks -->
 # Hook setup and troubleshooting
@@ -271,7 +301,7 @@ scope. Existing authorization covers the same stage and scope on resumption.
 6. **Execute and verify:** implement the plan, check off tasks as completed,
    and run applicable project quality gates. For commits or PRs, read
    [Delivery](delivery.md). For worthwhile, authorized mechanical delegation,
-   read [Delegation](delegation.md). Mirror tasks into host tracking
+   read [Delegation](delegation.md). Mirror tasks with `track_tasks`
    only when useful. Resume from the durable checklist after interruption.
 
 Persist `spec.md`, `implementation_plan.md`, and `tasks.md` under
@@ -286,7 +316,7 @@ After drafting a new feature spec, offer once before starting its implementation
 plan: “Want a spec roast before planning? I’ll challenge the assumptions, edge
 cases, and acceptance criteria. You can skip it or stop at any time.”
 
-Use the host's question tool if available, otherwise ask in conversation.
+Ask with `ask_user`.
 Offer “Roast the spec” and “Continue to planning” as choices. An explicit roast
 request already opts in; an explicit skip or request for no optional questions
 already opts out. Record the choice under `## Spec refinement` in the feature
@@ -378,7 +408,7 @@ edits inline. Keep unresolved design decisions in the primary session; follow
 repository guidance on model choice and the user's requests for direct work.
 
 The optional Claude Code plugin supplies `chowa-skill-mechanical`. For a
-standalone skill or another host, use native delegation with a permitted model
+standalone skill or another host, use `delegate` with a permitted model
 when available; otherwise execute inline. Never assume a named agent or model
 exists across hosts.
 
@@ -442,8 +472,7 @@ problems used only to prolong the interview.
    it matters and a recommended answer with its tradeoff. Label recommendations
    as proposals, not agreed requirements. Defer questions that depend on an
    unanswered choice to a later round.
-4. Use the host's question tool where available, otherwise numbered questions in
-   conversation. Wait for answers before dependent questions or planning.
+4. Ask with `ask_user`; its fallback is numbered questions in conversation. Wait for answers before dependent questions or planning.
    Research independent facts while waiting; do not guess the user's decisions.
 5. Update the actual requirements and acceptance criteria after each answered
    round. Record intentional exclusions and assumptions explicitly, and keep

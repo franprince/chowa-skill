@@ -23,7 +23,7 @@ scope. Existing authorization covers the same stage and scope on resumption.
 6. **Execute and verify:** implement the plan, check off tasks as completed,
    and run applicable project quality gates. For commits or PRs, read
    [Delivery](delivery.md). For worthwhile, authorized mechanical delegation,
-   read [Delegation](delegation.md). Mirror tasks into host tracking
+   read [Delegation](delegation.md). Mirror tasks with `track_tasks`
    only when useful. Resume from the durable checklist after interruption.
 
 Persist `spec.md`, `implementation_plan.md`, and `tasks.md` under
@@ -38,7 +38,7 @@ After drafting a new feature spec, offer once before starting its implementation
 plan: “Want a spec roast before planning? I’ll challenge the assumptions, edge
 cases, and acceptance criteria. You can skip it or stop at any time.”
 
-Use the host's question tool if available, otherwise ask in conversation.
+Ask with `ask_user`.
 Offer “Roast the spec” and “Continue to planning” as choices. An explicit roast
 request already opts in; an explicit skip or request for no optional questions
 already opts out. Record the choice under `## Spec refinement` in the feature

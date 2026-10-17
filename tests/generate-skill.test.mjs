@@ -82,7 +82,7 @@ test('artifact checks detect stale and missing references as well as the main sk
 
 test('template exposes every generated reference through a resolvable main-body link', () => {
   const { body, references } = renderSkill(readFileSync(TEMPLATE, 'utf-8'));
-  assert.deepEqual(Object.keys(references).sort(), ['delegation', 'delivery', 'hooks', 'pipeline', 'roadmap', 'simplified-english', 'spec-refinement', 'visual-proof']);
+  assert.deepEqual(Object.keys(references).sort(), ['delegation', 'delivery', 'hooks', 'host-capabilities', 'pipeline', 'roadmap', 'simplified-english', 'spec-refinement', 'visual-proof']);
   const linked = [...body.matchAll(/\]\(references\/([a-z0-9-]+)\.md\)/g)].map((match) => match[1]);
   assert.deepEqual([...new Set(linked)].sort(), Object.keys(references).sort());
   for (const content of Object.values(references)) {

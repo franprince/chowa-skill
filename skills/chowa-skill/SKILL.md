@@ -55,11 +55,10 @@ changes require renewed agreement.
 
 ## Host capabilities
 
-Use the available file, shell, question, and subagent tools. Claude tool names
-such as `AskUserQuestion`, `TaskCreate`, and `Agent` are examples, not required
-APIs. If a question tool is unavailable, ask in conversation. If task tracking
-is unavailable or redundant, use `tasks.md`; if delegation is unavailable,
-execute the task inline.
+Procedures name capabilities, not tools: `ask_user`, `track_tasks`,
+`delegate`, `run_shell`, and `edit_files`. Use this host's equivalent, or the
+fallback in [Host capabilities](references/host-capabilities.md) when it has
+none. A missing tool never blocks the workflow.
 
 Resolve each Markdown link relative to the file containing that link. Resolve
 bundled `scripts/` relative to the directory containing this SKILL.md. Use
