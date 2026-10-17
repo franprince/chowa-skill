@@ -13,10 +13,10 @@ const block = (body) => body;
 const reference = (name, body = `# ${name}\n\nReference content.`) =>
   `<!-- reference:${name} -->\n${body}\n<!-- reference:end -->`;
 
-test('render numbers main headings and extracts reference headings unchanged', () => {
+test('render keeps main headings and extracts reference headings unchanged', () => {
   const template = ['### First\nShared content.', reference('hooks', '# Hooks\n### Reference heading'), '### Second\nSkill content.'].join('\n');
   const { body, references } = renderSkill(template);
-  assert.equal(body, '### 1. First\nShared content.\n### 2. Second\nSkill content.');
+  assert.equal(body, '### First\nShared content.\n### Second\nSkill content.');
   assert.deepEqual(references, { hooks: '# Hooks\n### Reference heading\n' });
   assert.equal(renderTemplate(template), body);
 });
@@ -29,7 +29,7 @@ test('render preserves marker examples, headings, and blank lines inside Markdow
       ...(opening === '```markdown' ? [] : ['```']), closing,
     ].join('\n');
     const { body, references } = renderSkill(block(`### First\n${code}\n### Second`));
-    assert.equal(body, `### 1. First\n${code}\n### 2. Second`);
+    assert.equal(body, `### First\n${code}\n### Second`);
     assert.deepEqual(references, {});
   }
 });
@@ -94,7 +94,7 @@ test('template exposes every generated reference through a resolvable main-body 
 test('template generated artifacts are in sync and the entrypoint stays within its size budget', () => {
   const artifacts = generatedArtifacts(readFileSync(TEMPLATE, 'utf-8'));
   assert.deepEqual(checkGeneratedArtifacts(artifacts), [], 'Run: node scripts/generate-skill.mjs');
-  assert.ok([...artifacts.values()][0].length <= 7_000, 'Keep the main skill below 7,000 characters.');
+  assert.ok([...artifacts.values()][0].length <= 5_500, 'Keep the main skill below 5,500 characters.');
 });
 
 test('every local Markdown link resolves inside the standalone generated skill', () => {

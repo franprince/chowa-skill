@@ -1,37 +1,37 @@
 ---
 name: chowa-skill
 description: >
-  Spec-driven development with durable plans, atomic Conventional Commits,
-  optional spec roasts, PR readiness checks, and bounded mechanical delegation.
-  Use for new features, specs or spec refinement, plans, implementing approved
-  work, commits, PRs, mechanical delegation, or requested roadmap views.
-  Check project or user opt-in before applying the workflow; otherwise
-  follow repository conventions.
+  Spec-driven workflow for projects that opt into Chōwa (specs/INDEX.md or
+  chowa.config.* at the root, or the user's always-on preference) or when the
+  user asks for it: specs and spec roasts, plans, implementing approved work,
+  Conventional Commits, PRs, mechanical delegation, and roadmap views. Without
+  opt-in, follow repository conventions instead.
 ---
 
 # Chōwa Skill
 
 Use the host's native tools and `git`/`gh` for spec → plan → execute work.
-The workflow runs in Claude Code, Codex, and Gemini CLI.
 
 ## Activation
 
 On first use in a session, check the project root and read
-`~/.chowa-skill/preferences.json`. Reuse this context until the project or
-preferences change. Missing or unreadable preferences mean defaults.
+`~/.chowa-skill/preferences.json`; missing or unreadable preferences mean
+defaults. Reuse this context until the project or preferences change. When
+asked to enable always-on behavior, set only `"alwaysOn": true` in that file,
+preserving other keys.
 
-- Persistent opt-in: `specs/INDEX.md` or `chowa.config.js`,
-  `chowa.config.ts`, or `chowa.config.mjs` exists at the project root;
-  alternatively, personal preferences set `"alwaysOn": true`.
-- Conversation opt-in: the user explicitly requests this workflow here.
-  Hooks cannot read that request; they recognize it once the pipeline
-  creates `specs/INDEX.md`. Until then, enforce the agreed paths yourself.
-- Otherwise, follow the repository's conventions. Explain activation only
-  when relevant to the request; do not start this pipeline or create markers.
+The workflow applies when:
 
-When asked to enable always-on behavior, update only `alwaysOn` in the
-personal JSON file, preserving other keys. This preference applies when the
-skill is loaded; it does not install a session-start hook.
+- `specs/INDEX.md` or `chowa.config.js`, `chowa.config.ts`, or
+  `chowa.config.mjs` exists at the project root, or preferences set
+  `"alwaysOn": true` (persistent opt-in); or
+- the user explicitly requests this workflow in the conversation. Hooks
+  recognize this only once `specs/INDEX.md` exists; until then, keep spec
+  files in the agreed paths yourself.
+
+Otherwise, follow the repository's conventions for every request, including
+commits and PRs. Do not start the pipeline, create opt-in markers, or apply
+Chōwa defaults such as its PR footer. Explain activation only when relevant.
 
 If the CLI-backed Chōwa plugin's `chowa` skill is also loaded, let one
 workflow lead. Defer to `chowa` when the `chowa` command is on PATH or the
@@ -54,71 +54,50 @@ existing feature from its current artifacts; avoid restarting approved stages.
 
 Spec and plan approval are checkpoints, not repeated questions. If the user
 already authorized the same scope, including a request to plan and implement,
-record that authorization and proceed. Ask only for an outstanding decision
-or approval; prepare the concrete artifacts before asking. Material scope
-changes require renewed agreement.
+record that authorization and proceed; this also covers resumption. Ask only
+for an outstanding decision or approval, after preparing the concrete
+artifacts. Material scope changes require renewed agreement. Approval to
+create a PR or to run an interview never implies approval to merge or build.
 
 ## Host capabilities
 
 Procedures name capabilities, not tools: `ask_user`, `track_tasks`,
-`delegate`, `run_shell`, and `edit_files`. Use this host's equivalent, or the
-fallback in [Host capabilities](references/host-capabilities.md) when it has
-none. A missing tool never blocks the workflow.
+`delegate`, `run_shell`, and `edit_files`. Use this host's equivalent or the
+fallback in [Host capabilities](references/host-capabilities.md); a missing
+tool never blocks the workflow.
 
-Resolve each Markdown link relative to the file containing that link. Resolve
-bundled `scripts/` relative to the directory containing this SKILL.md. Use
-verified absolute script paths with the target project as CWD. The complete skill directory includes its helpers and hook definitions;
-helpers require Node.js 22 or newer on PATH.
+Resolve Markdown links relative to the file containing them and bundled
+`scripts/` relative to this SKILL.md's directory. Run helpers by verified
+absolute path with the target project as CWD; they need Node.js 22+ on PATH.
+Run them without reading their source unless you are debugging a helper.
 
 ## Routing and shared constraints
 
-Read only the procedure needed for the current stage. Follow its links when a
-transition or optional choice requires another procedure; do not preload them
-all. References are local instructions for this agent, not separate agent calls
-or dependencies on installed skills. Already-read instructions may remain in
-the host's conversation context; modularity defers loading but does not guarantee
-that earlier instructions are unloaded.
-
-Honor the requested boundary: spec-only and plan-only work stops there. Use the
-existing feature directory and durable checklist on resumption. The pipeline
-owns the optional refinement offer before first-time planning; accepting it
-loads the refinement procedure, and declining it preserves normal clarification.
+Read only the procedure needed for the current stage; follow its links when a
+transition requires another. Do not preload them all. Honor the requested
+boundary: spec-only and plan-only work stops there.
 
 For implementation, use a topic branch, preserve unrelated changes, and follow
-[Delivery](references/delivery.md) for repository branch conventions. Run the
-project's applicable quality gates before claiming completion. Read
-[Delegation](references/delegation.md) only when considering that capability.
+[Delivery](references/delivery.md) for branch conventions. Run the project's
+applicable quality gates before claiming completion.
 
-Avoid adding comments to code. Prefer clear names and straightforward structure;
-put task explanations in the spec, PR, or conversation. Do not leave change
-narration, redundant explanations, or commented-out code. Add a concise comment
-only when explicitly requested, required by repository conventions or tooling,
-or essential to explain a non-obvious correctness constraint. Preserve existing
-useful comments unless the task calls for changing them. Include this rule in
-delegated task constraints.
+Do not add code comments unless requested, required by repository conventions
+or tooling, or needed to explain a non-obvious correctness constraint. Leave
+no change narration or commented-out code; keep useful existing comments.
+Pass this rule on in delegated task constraints.
 
-### 1. Hook guards
+### Hook guards
 
-Installed guards request approval for recognized protected-branch pushes,
-deletes, and merges, or deny where the host cannot ask. Push/merge protection
-applies in every project. Spec-location protection applies to persistent
-opt-in signals: the index, a `chowa.config.js`/`.ts`/`.mjs` file, or personal
-`alwaysOn`. It rejects root-level `spec.md`, `implementation_plan.md`, and
-`tasks.md`; move these into the feature's dated directory.
+Keep `spec.md`, `implementation_plan.md`, and `tasks.md` in the feature's
+dated directory; guards in opted-in projects reject them at the root. When a
+guard asks or denies, follow the host's permission decision. For guard
+behavior, installation, or troubleshooting, read [Hook setup](references/hooks.md).
 
-Honor existing user authorization, but follow the host's permission decision
-when a guard intervenes. Guards do not infer conversational approval.
-Protection depends on installed adapters and recognized input shapes;
-malformed or unsupported payloads can defer to normal host permissions.
+### Optional procedures
 
-For hook installation or troubleshooting, read [Hook setup](references/hooks.md).
-
-### 2. Optional procedures
-
-- Explicit visual-proof request or a standing project instruction: read
-  [Visual proof](references/visual-proof.md). File extensions alone do not
-  enable it; the Storybook collector needs its own explicit request.
+- Visual proof, only on an explicit request or a standing project instruction
+  (UI file types alone do not count): read [Visual proof](references/visual-proof.md).
 - Requested roadmap or development history: read [Roadmap](references/roadmap.md).
-- `ste100` enabled: read [Simplified English](references/simplified-english.md).
-  An explicit project setting overrides the personal preference; default off.
-  Read the setting from `chowa.config.js` or personal preferences as data.
+- `ste100` enabled (a project `chowa.config.js` boolean overrides the personal
+  preference; default off; read both as data): read
+  [Simplified English](references/simplified-english.md).

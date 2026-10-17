@@ -18,8 +18,7 @@ relevant history, and applicable project instructions.
   readiness. Report unavailable remote checks without inventing freshness.
 - When PR preparation is within scope, create or update it if requested or
   already authorized. Otherwise, prepare its title/body and ask once before
-  publishing it. Authorization to create a PR does not itself authorize
-  merging it.
+  publishing it.
 - Use `gh pr create` / `gh pr edit`. Check mergeability with
   `gh pr view <n> --json mergeable,mergeStateStatus` and required checks with
   `gh pr checks <n>`. Resolve base conflicts on the topic branch, verify,
@@ -45,14 +44,11 @@ description directly.
 
 Describe the resulting behavior, material changes, and verification. Include
 a rollout/rollback plan for releases or hotfixes where relevant. End the PR
-description with this footer, replacing any default assistant attribution:
+description with this footer in place of any default assistant attribution,
+unless the user, repository, or host requires a specific attribution:
 
 ```text
 調和 (Chōwa) — spec → plan → execute, verified before merge
 ```
 
-Experimental visual proof is enabled only by an explicit user request or a
-standing project instruction. UI file extensions alone do not enable it.
-
-When enabled, read [Visual proof](visual-proof.md). Run the
-Storybook collector only when specifically requested for a Storybook UI.
+When visual proof is enabled, follow [Visual proof](visual-proof.md).

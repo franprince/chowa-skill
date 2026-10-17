@@ -39,3 +39,4 @@ Chōwa Skill's spec → plan → execute pipeline persists every iteration's `sp
 | 2026-09-05 | [optional-spec-refinement](2026-09-05-optional-spec-refinement/spec.md) | Done | Thin skill entrypoint with on-demand procedures and an optional pre-planning spec roast |
 | 2026-09-05 | [reliable-automatic-versioning](2026-09-05-reliable-automatic-versioning/spec.md) | Done | Recover verified release boundaries and publish annotated tags for correct automatic SemVer |
 | 2026-10-17 | [host-capability-verbs](2026-10-17-host-capability-verbs/spec.md) | Done | Procedures name host capabilities with fallbacks and verified per-host tool mappings |
+| 2026-10-17 | [skill-token-efficiency](2026-10-17-skill-token-efficiency/spec.md) | Done | Entrypoint 23% smaller with each rule stated once, plus a tighter size budget |

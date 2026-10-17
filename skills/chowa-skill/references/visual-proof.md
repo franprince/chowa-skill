@@ -1,9 +1,8 @@
 # Visual proof and Storybook collection
 
-Apply this procedure only when the user requests visual proof or project
-instructions require it. Within that scope, include `### Visual Proof` after
-`### Summary` in the PR description. Attach actual rendered evidence for
-visual changes. For non-visual changes, write `N/A (non-visual change)`.
+Include `### Visual Proof` after `### Summary` in the PR description. Attach
+actual rendered evidence for visual changes. For non-visual changes, write
+`N/A (non-visual change)`.
 
 Styling, frontend components, graphic assets, layout templates, and themes
 are candidates for visual review; inspect the actual diff. A behavior-only
@@ -16,10 +15,8 @@ placeholder images. Upload only within the user's authorized scope.
 
 Run the bundled collector only when the user explicitly requests visual proof
 for a Storybook-backed UI. General visual-proof opt-in or a styling diff does
-not automatically authorize running this collector.
-
-Keep the target project as CWD. Resolve the skill directory containing SKILL.md
-and substitute its verified absolute path:
+not authorize it. Keep the target project as CWD and substitute the verified
+absolute skill directory:
 
 ```bash
 node /absolute/skill-root/scripts/storybook-proof.mjs --base <base-ref>
