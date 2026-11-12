@@ -113,12 +113,35 @@ test('documentation-only work can restore a missing tag without bumping or commi
   assert.match(f.git('ls-remote', '--tags', 'origin'), /refs\/tags\/v0\.12\.0/);
 });
 
-test('an advanced remote rejects both the release commit and tag publication atomically', (t) => {
+test('an advanced remote rejects the release atomically and leaves publication to the newer run', (t) => {
   const f = fixture(t); f.change('fix: correction'); f.git('push', '-q', 'origin', 'main');
   const advanced = f.git('commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'concurrent change');
   f.git('push', '-q', 'origin', `${advanced}:main`);
   const result = f.publish(f.plan());
-  assert.notEqual(result.status, 0);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /newer run on main/);
   assert.equal(f.git('ls-remote', '--tags', 'origin'), '');
   assert.equal(f.git('ls-remote', 'origin', 'refs/heads/main').split(/\s/)[0], advanced);
+});
+
+test('a conflicting remote tag still fails when main has not advanced', (t) => {
+  const f = fixture(t); const head = f.change('fix: correction'); f.git('push', '-q', 'origin', 'main');
+  f.git('push', '-q', 'origin', `${f.boundary}:refs/tags/v0.12.1`);
+  const result = f.publish(f.plan());
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(result.stdout, /newer run on main/);
+  assert.equal(f.git('ls-remote', 'origin', 'refs/tags/v0.12.1').split(/\s/)[0], f.boundary);
+  assert.equal(f.git('ls-remote', 'origin', 'refs/heads/main').split(/\s/)[0], head);
+});
+
+test('a diverged remote main still fails instead of skipping', (t) => {
+  const f = fixture(t); const head = f.change('fix: correction'); f.git('push', '-q', 'origin', 'main');
+  const sibling = f.git('commit-tree', 'HEAD^{tree}', '-p', 'HEAD^', '-m', 'rewritten history');
+  f.git('push', '-q', '-f', 'origin', `${sibling}:main`);
+  assert.notEqual(head, sibling);
+  const result = f.publish(f.plan());
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(result.stdout, /newer run on main/);
+  assert.equal(f.git('ls-remote', '--tags', 'origin'), '');
+  assert.equal(f.git('ls-remote', 'origin', 'refs/heads/main').split(/\s/)[0], sibling);
 });
