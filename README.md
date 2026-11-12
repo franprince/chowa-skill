@@ -188,7 +188,8 @@ Claude Code plugin installation discovers its hooks automatically. Do not also
 install the standalone hook adapter for the same scope.
 
 Push/merge protection applies in every project; spec-location protection
-requires persistent opt-in. Claude can request approval; Codex and Gemini deny
+requires persistent opt-in and leaves root spec files that git already tracks
+alone. Claude can request approval; Codex and Gemini deny
 recognized blocked actions. Hooks check supported command and path shapes;
 unsupported shell constructs or malformed input can defer to normal host
 permissions. See [Hook setup](skills/chowa-skill/references/hooks.md) for

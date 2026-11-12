@@ -14,11 +14,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GUARD = join(repoRoot, 'scripts/guard.mjs');
@@ -133,6 +133,116 @@ test('each guard also decides when run on its own, not just via the dispatcher',
     args: ['--harness', 'claude'],
   });
   assert.match(push.stdout, /"permissionDecision":"ask"/);
+});
+
+// --- Context along the command line ----------------------------------------
+
+/** A real repository checked out on `branch`, with `main` behind it. */
+function repositoryOn(branch) {
+  const root = mkdtempSync(join(tmpdir(), 'chowa-repo-'));
+  const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
+  git('init', '-q', '-b', 'main');
+  git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'init');
+  if (branch !== 'main') git('checkout', '-q', '-b', branch);
+  return root;
+}
+
+const shellCall = (cwd, command) => ({
+  hook_event_name: 'PreToolUse',
+  cwd,
+  tool_name: 'Bash',
+  tool_input: { command },
+});
+
+test('the dispatcher judges a push by the branch the command line switches to', () => {
+  const cwd = repositoryOn('feat/x');
+
+  const plain = runGuard(shellCall(cwd, 'git push'), { args: ['--harness', 'claude'] });
+  assert.equal(plain.stdout, '');
+
+  const switched = runGuard(shellCall(cwd, 'git checkout main && git merge feat/x && git push'), {
+    args: ['--harness', 'claude'],
+  });
+  assert.match(switched.stdout, /"permissionDecision":"ask"/);
+});
+
+test('the dispatcher reads the branch of the repository a push runs in', () => {
+  const onMain = repositoryOn('main');
+  const onTopic = repositoryOn('feat/x');
+
+  const elsewhere = runGuard(shellCall(onMain, `git -C ${onTopic} push`), { args: ['--harness', 'claude'] });
+  assert.equal(elsewhere.stdout, '');
+
+  const entered = runGuard(shellCall(onTopic, `cd ${onMain} && git push`), { args: ['--harness', 'claude'] });
+  assert.match(entered.stdout, /"permissionDecision":"ask"/);
+});
+
+test('the dispatcher allows a spec written after cd into its feature directory', () => {
+  const cwd = optedInProject();
+  const { stdout, status } = runGuard(
+    shellCall(cwd, 'cd specs/2026-08-07-feat && cat > spec.md <<EOF\n# Spec\nEOF'),
+    { args: ['--harness', 'claude'] },
+  );
+
+  assert.equal(status, 0);
+  assert.equal(stdout, '');
+});
+
+/** An opted-in repository with `tracked` committed at its root. */
+function optedInRepositoryTracking(tracked) {
+  const root = repositoryOn('feat/x');
+  mkdirSync(join(root, 'specs'), { recursive: true });
+  writeFileSync(join(root, 'specs', 'INDEX.md'), '# Spec Index\n');
+  writeFileSync(join(root, tracked), '# Project specification\n');
+  const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
+  git('add', '--', tracked);
+  git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'docs: add spec');
+  return root;
+}
+
+const editFile = (cwd, filePath) => ({
+  hook_event_name: 'PreToolUse',
+  cwd,
+  tool_name: 'Edit',
+  tool_input: { file_path: filePath, old_string: 'a', new_string: 'b' },
+});
+
+test('the dispatcher allows edits to a root spec file that git already tracks', () => {
+  const cwd = optedInRepositoryTracking('SPEC.md');
+  const options = { args: ['--harness', 'claude'] };
+
+  assert.equal(runGuard(editFile(cwd, 'SPEC.md'), options).stdout, '');
+  assert.equal(runGuard(editFile(cwd, join(cwd, 'SPEC.md')), options).stdout, '');
+  assert.equal(runGuard(shellCall(cwd, 'sed -i s/a/b/ SPEC.md'), options).stdout, '');
+  assert.equal(runGuard(shellCall(join(cwd, 'specs'), 'echo x >> ../SPEC.md'), options).stdout, '');
+});
+
+test('the dispatcher still denies a new root spec file in a repository that tracks another', () => {
+  const cwd = optedInRepositoryTracking('SPEC.md');
+  const options = { args: ['--harness', 'claude'] };
+
+  assert.match(runGuard(editFile(cwd, 'tasks.md'), options).stdout, /"permissionDecision":"deny"/);
+  assert.match(runGuard(shellCall(cwd, 'touch tasks.md'), options).stdout, /"permissionDecision":"deny"/);
+});
+
+test('the dispatcher denies a root spec file that exists but git does not track', () => {
+  const cwd = optedInRepositoryTracking('SPEC.md');
+  writeFileSync(join(cwd, 'tasks.md'), '- [ ] one\n');
+
+  const { stdout } = runGuard(editFile(cwd, 'tasks.md'), { args: ['--harness', 'claude'] });
+  assert.match(stdout, /"permissionDecision":"deny"/);
+});
+
+test('emit delivers output larger than a pipe buffer in full', () => {
+  const harness = pathToFileURL(join(repoRoot, 'scripts/lib/harness.mjs')).href;
+  const script =
+    `import { emit } from ${JSON.stringify(harness)};` +
+    "emit({ blocked: true }, { render: () => ({ stdout: 'x'.repeat(300000), stderr: 'e'.repeat(300000), exitCode: 2 }) });";
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf-8' });
+
+  assert.equal(run.stdout.length, 300000);
+  assert.equal(run.stderr.length, 300000);
+  assert.equal(run.status, 2);
 });
 
 // --- Cross-harness --------------------------------------------------------

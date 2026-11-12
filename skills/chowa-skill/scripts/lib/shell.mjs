@@ -9,11 +9,12 @@
  * worse failure (see the doctrine in `guard-push.mjs`), so quoting has to be
  * understood rather than approximated.
  *
- * This is a lexer, not a shell. It resolves quoting, escaping, operators, and
- * redirect targets — enough to answer "what does this command line actually
- * write to, and where does one command end and the next begin". Command
- * substitution, `eval`, and variable expansion stay out of scope by design;
- * the prose rule remains the backstop for those.
+ * This is a lexer, not a shell. It resolves quoting, escaping, operators,
+ * redirect targets, heredoc bodies, and subshell parentheses — enough to
+ * answer "what does this command line actually write to, and where does one
+ * command end and the next begin". Command substitution, `eval`, and
+ * variable expansion stay out of scope by design; the prose rule remains the
+ * backstop for those.
  */
 
 /** Characters that begin a shell operator. */
@@ -21,6 +22,13 @@ const OPERATOR_CHARS = new Set(['&', '|', ';', '<', '>', '\n']);
 
 /** Two-character operators, checked before falling back to one character. */
 const TWO_CHAR_OPERATORS = new Set(['&&', '||', '>>', '<<', '&>', '>&']);
+
+/**
+ * Interpreters that execute a heredoc body, and the builtins that read a
+ * script from it (`source /dev/stdin <<EOF`). Everywhere else the body is
+ * data, and reading it as commands blocks a note that merely mentions one.
+ */
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'source', '.']);
 
 /** Operators that end one command and begin another. */
 const SEGMENT_OPERATORS = new Set(['&&', '||', ';', '|', '\n', '&']);
@@ -35,7 +43,24 @@ const WRITE_REDIRECTS = new Set(['>', '>>', '&>']);
  * @property {boolean} operator - whether this is an operator rather than a word
  * @property {number} start - offset of the token in the source string
  * @property {number} end - offset just past the token in the source string
+ * @property {number} [opens] - subshell parentheses opened just before this word
+ * @property {number} [closes] - subshell parentheses closed just after this word
  */
+
+/** Offset just past a heredoc's terminator line, or -1 when there is none. */
+function heredocEnd(command, from, { delimiter, stripTabs }) {
+  let position = from;
+  while (position <= command.length) {
+    const newline = command.indexOf('\n', position);
+    const lineEnd = newline === -1 ? command.length : newline;
+    let line = command.slice(position, lineEnd).replace(/\r$/, '');
+    if (stripTabs) line = line.replace(/^\t+/, '');
+    if (line === delimiter) return newline === -1 ? command.length : newline + 1;
+    if (newline === -1) return -1;
+    position = newline + 1;
+  }
+  return -1;
+}
 
 /**
  * Scan a command line into words and operators, resolving quotes and escapes.
@@ -54,19 +79,60 @@ export function lex(command) {
   let wordStart = 0;
   let i = 0;
 
+  // Parentheses that start a word open a subshell and are dropped from it;
+  // those inside a word (`$(`, `$((`) stay, and so do the ones closing them.
+  let pendingOpens = 0;
+  let opens = 0;
+  let closes = 0;
+  let innerDepth = 0;
+
+  /** @type {{ stripTabs: boolean } | null} */
+  let awaitingDelimiter = null;
+  /** @type {{ delimiter: string, stripTabs: boolean }[]} */
+  let heredocs = [];
+
   const flushWord = (end) => {
     if (!started) return;
-    tokens.push({ value: word, quoted, operator: false, start: wordStart, end });
+    tokens.push({ value: word, quoted, operator: false, start: wordStart, end, opens, closes });
+    if (awaitingDelimiter) heredocs.push({ delimiter: word, stripTabs: awaitingDelimiter.stripTabs });
+    awaitingDelimiter = null;
     word = '';
     quoted = false;
     started = false;
+    opens = 0;
+    closes = 0;
   };
 
   const beginWord = () => {
     if (!started) {
       started = true;
       wordStart = i;
+      opens = pendingOpens;
+      pendingOpens = 0;
     }
+  };
+
+  const closeSubshell = () => {
+    if (started) {
+      closes += 1;
+      return;
+    }
+    for (let index = tokens.length - 1; index >= 0; index -= 1) {
+      if (!tokens[index].operator) {
+        tokens[index].closes += 1;
+        return;
+      }
+    }
+  };
+
+  /** Does the line just scanned run a shell that could read the heredoc? */
+  const lineRunsShell = () => {
+    for (let index = tokens.length - 1; index >= 0; index -= 1) {
+      const token = tokens[index];
+      if (token.operator && token.value === '\n') return false;
+      if (!token.operator && SHELLS.has(token.value.split('/').pop())) return true;
+    }
+    return false;
   };
 
   while (i < command.length) {
@@ -122,8 +188,25 @@ export function lex(command) {
         started = false;
       }
       flushWord(i);
+      awaitingDelimiter = null;
 
       const start = i;
+
+      if (char === '\n' && heredocs.length > 0) {
+        // Skip the bodies only when every terminator is really there:
+        // `$((1 << 2))` also lexes as `<<`, and must not swallow the rest.
+        let cursor = lineRunsShell() ? -1 : i + 1;
+        for (const heredoc of heredocs) {
+          cursor = cursor === -1 ? -1 : heredocEnd(command, cursor, heredoc);
+        }
+        heredocs = [];
+        if (cursor !== -1) {
+          i = cursor;
+          tokens.push({ value: '\n', quoted: false, operator: true, start, end: i });
+          continue;
+        }
+      }
+
       let operator = char;
       const pair = char + (command[i + 1] ?? '');
       if (TWO_CHAR_OPERATORS.has(pair)) {
@@ -131,8 +214,36 @@ export function lex(command) {
         i += 1;
       }
       i += 1;
+
+      if (operator === '<<') {
+        if (command[i] === '<') {
+          operator = '<<<'; // a here-string: its word is data, not a delimiter
+          i += 1;
+        } else {
+          const stripTabs = command[i] === '-';
+          if (stripTabs) i += 1;
+          awaitingDelimiter = { stripTabs };
+        }
+      }
+
       tokens.push({ value: operator, quoted: false, operator: true, start, end: i });
       continue;
+    }
+
+    if (char === '(') {
+      if (!started) {
+        pendingOpens += 1;
+        i += 1;
+        continue;
+      }
+      innerDepth += 1;
+    } else if (char === ')') {
+      if (innerDepth === 0) {
+        closeSubshell();
+        i += 1;
+        continue;
+      }
+      innerDepth -= 1;
     }
 
     beginWord();
@@ -148,6 +259,9 @@ export function lex(command) {
  * @typedef {object} Segment
  * @property {Token[]} tokens - words and non-separating operators
  * @property {string} text - the original source text of this segment
+ * @property {string|null} before - the operator that joins this command to
+ *   the one before it (`&&`, `||`, `;`, `|`, `&`, or a newline); `null` for
+ *   the first command
  */
 
 /**
@@ -164,17 +278,23 @@ export function splitSegments(command) {
   /** @type {Token[]} */
   let current = [];
   let start = 0;
+  /** @type {string|null} */
+  let before = null;
 
   const flush = (end) => {
     const text = command.slice(start, end).trim();
-    if (current.length > 0) segments.push({ tokens: current, text });
+    if (current.length > 0) segments.push({ tokens: current, text, before });
     current = [];
   };
 
   for (const token of lex(command)) {
     if (token.operator && SEGMENT_OPERATORS.has(token.value)) {
+      const hadCommand = current.length > 0;
       flush(token.start);
       start = token.end;
+      // Between two commands only the first operator joins them: the
+      // newline after `&&` is a continuation, not a new separator.
+      if (hadCommand) before = token.value;
       continue;
     }
     current.push(token);
@@ -212,6 +332,11 @@ export function words(tokens) {
     result.push(tokens[i].value);
   }
   return result;
+}
+
+/** Shorten text quoted back in a reason, so one huge command stays readable. */
+export function clip(text, limit = 200) {
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 
 /**

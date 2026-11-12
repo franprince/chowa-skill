@@ -116,7 +116,7 @@ export function renderTemplate(template) {
 export const RUNTIME_FILES = [
   'scripts/guard.mjs', 'scripts/guard-push.mjs', 'scripts/guard-spec.mjs',
   'scripts/install-hooks.mjs', 'scripts/storybook-proof.mjs',
-  'scripts/lib/direct-run.mjs', 'scripts/lib/harness.mjs',
+  'scripts/lib/context.mjs', 'scripts/lib/direct-run.mjs', 'scripts/lib/harness.mjs',
   'scripts/lib/opt-in.mjs', 'scripts/lib/shell.mjs',
   'hooks/hooks.json', 'hooks/codex-hooks.json',
   'hooks/gemini-settings.json', 'hooks/antigravity-hooks.json',
