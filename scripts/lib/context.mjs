@@ -90,11 +90,31 @@ export function resolveDirectory(from, ...targets) {
   return directory;
 }
 
-/** Where `name` sits in a command's words, or -1 if it is not being run. */
+/**
+ * Commands whose arguments are text, patterns or file names, never a command
+ * to run. `echo git push` and `grep -r git push` mention a push without
+ * making one. `git` and `gh` are here for each other: `gh pr create --title
+ * git push` runs no `git`.
+ */
+const TAKES_TEXT = new Set([
+  'echo', 'printf', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'cat', 'bat', 'less',
+  'more', 'head', 'tail', 'wc', 'man', 'tldr', 'apropos', 'which', 'whereis',
+  'type', 'ls', 'cd', 'pushd', 'test', '[', 'sed', 'awk', 'touch', 'mkdir',
+  'rm', 'cp', 'mv', 'git', 'gh',
+]);
+
+/**
+ * Where `name` sits in a command's words, or -1 if it is not being run.
+ *
+ * Any program this file does not know may be a wrapper (`flock`, `watch`,
+ * a task runner), so `name` is searched for after it. Only a command known
+ * to take text is trusted not to run its arguments.
+ */
 function programIndex(list, name) {
   if (list.length === 0) return -1;
-  if (basename(list[0]) === name) return 0;
-  if (!WRAPPERS.has(basename(list[0]))) return -1;
+  const program = basename(list[0]).replace(/^\\/, '');
+  if (program === name) return 0;
+  if (TAKES_TEXT.has(program) && !WRAPPERS.has(program)) return -1;
   return list.findIndex((word, index) => index > 0 && basename(word) === name);
 }
 
@@ -210,7 +230,58 @@ export function walkCommands(command, cwd) {
   const saved = [];
   const steps = [];
 
+  const move = (directory) => {
+    state.cwd = directory;
+  };
+  const switchTo = (target, succeeded) => {
+    if (target === 'previous') {
+      const wasCertain = state.certain;
+      [state.branch, state.previous] = [state.previous, state.branch];
+      state.certain = state.previousCertain && succeeded;
+      state.previousCertain = wasCertain;
+      return;
+    }
+    state.previous = state.branch;
+    state.previousCertain = state.certain;
+    state.branch = target.name;
+    state.certain = target.certain && succeeded;
+  };
+
+  // A `cd` or a branch switch takes effect for the next command only as far
+  // as the operator between them shows that it ran and succeeded:
+  //   `&&`        it succeeded.
+  //   `;`, newline it ran, and may have failed. A directory is still
+  //               followed (the caller checks that it holds a repository);
+  //               a branch is kept as uncertain, so it can add protection
+  //               and never remove it.
+  //   `||`        the next command runs because it failed, so that command
+  //               sees no change; later commands are treated as after `;`.
+  //   `|`, `&`    a `cd` ran in a subshell and changes nothing. A branch
+  //               switch still happened in the repository, uncertainly.
+  /** @type {{ directory?: string|null, target?: object|string } | null} */
+  let pending = null;
+  /** @type {typeof pending} */
+  let deferred = null;
+
+  const apply = (change, succeeded) => {
+    if (!change) return;
+    if ('directory' in change) move(change.directory);
+    else switchTo(change.target, succeeded);
+  };
+
   for (const segment of splitSegments(command)) {
+    apply(deferred, false);
+    deferred = null;
+    if (pending) {
+      const isSwitch = 'target' in pending;
+      if (segment.before === '&&') apply(pending, true);
+      else if (segment.before === '||') deferred = pending;
+      else if (segment.before === '|' || segment.before === '&') {
+        if (isSwitch) apply(pending, false);
+      } else apply(pending, false);
+      pending = null;
+    }
+
     const tokens = withoutPrefix(segment.tokens);
     const opened = segment.tokens.reduce((sum, token) => sum + (token.opens ?? 0), 0);
     const closed = segment.tokens.reduce((sum, token) => sum + (token.closes ?? 0), 0);
@@ -229,24 +300,23 @@ export function walkCommands(command, cwd) {
     const list = words(tokens);
     if (list[0] === 'cd' || list[0] === 'pushd') {
       const target = list.slice(1).find((word) => word === '-' || !word.startsWith('-'));
-      state.cwd = target === undefined || target === '-' ? null : resolveDirectory(state.cwd, target);
+      pending = {
+        directory: target === undefined || target === '-' ? null : resolveDirectory(state.cwd, target),
+      };
     } else if (list[0] === 'popd') {
-      state.cwd = null;
+      pending = { directory: null };
     } else {
       const git = parseGit(list);
       const switches = git && Object.hasOwn(CREATES_BRANCH, git.subcommand) && git.directories.length === 0;
       const target = switches ? switchTarget(git.subcommand, git.args) : null;
-      if (target === 'previous') {
-        [state.branch, state.previous] = [state.previous, state.branch];
-        [state.certain, state.previousCertain] = [state.previousCertain, state.certain];
-      } else if (target) {
-        state.previous = state.branch;
-        state.previousCertain = state.certain;
-        state.branch = target.name;
-        state.certain = target.certain;
-      }
+      if (target) pending = { target };
     }
 
+    // A `cd` inside a subshell ends with it.
+    if (closed > 0) {
+      if (pending && 'directory' in pending) pending = null;
+      if (deferred && 'directory' in deferred) deferred = null;
+    }
     for (let i = 0; i < closed && saved.length > 0; i += 1) state.cwd = saved.pop();
   }
 

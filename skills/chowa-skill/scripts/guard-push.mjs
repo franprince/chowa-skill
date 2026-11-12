@@ -98,7 +98,9 @@ function branchFor(step, git, resolveBranch, startCwd) {
   if (step.branch && (step.branchCertain || PROTECTED_BRANCHES.has(step.branch))) {
     return step.branch;
   }
-  return resolveBranch(step.cwd ?? startCwd);
+  // A directory with no repository behind it is one the `cd` never reached
+  // (it failed, or the path is wrong), so the command runs where it started.
+  return (step.cwd ? resolveBranch(step.cwd) : undefined) ?? resolveBranch(startCwd);
 }
 
 /**

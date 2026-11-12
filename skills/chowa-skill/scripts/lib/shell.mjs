@@ -24,10 +24,11 @@ const OPERATOR_CHARS = new Set(['&', '|', ';', '<', '>', '\n']);
 const TWO_CHAR_OPERATORS = new Set(['&&', '||', '>>', '<<', '&>', '>&']);
 
 /**
- * Interpreters that execute a heredoc body. Everywhere else the body is
+ * Interpreters that execute a heredoc body, and the builtins that read a
+ * script from it (`source /dev/stdin <<EOF`). Everywhere else the body is
  * data, and reading it as commands blocks a note that merely mentions one.
  */
-const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'source', '.']);
 
 /** Operators that end one command and begin another. */
 const SEGMENT_OPERATORS = new Set(['&&', '||', ';', '|', '\n', '&']);
@@ -258,6 +259,9 @@ export function lex(command) {
  * @typedef {object} Segment
  * @property {Token[]} tokens - words and non-separating operators
  * @property {string} text - the original source text of this segment
+ * @property {string|null} before - the operator that joins this command to
+ *   the one before it (`&&`, `||`, `;`, `|`, `&`, or a newline); `null` for
+ *   the first command
  */
 
 /**
@@ -274,17 +278,23 @@ export function splitSegments(command) {
   /** @type {Token[]} */
   let current = [];
   let start = 0;
+  /** @type {string|null} */
+  let before = null;
 
   const flush = (end) => {
     const text = command.slice(start, end).trim();
-    if (current.length > 0) segments.push({ tokens: current, text });
+    if (current.length > 0) segments.push({ tokens: current, text, before });
     current = [];
   };
 
   for (const token of lex(command)) {
     if (token.operator && SEGMENT_OPERATORS.has(token.value)) {
+      const hadCommand = current.length > 0;
       flush(token.start);
       start = token.end;
+      // Between two commands only the first operator joins them: the
+      // newline after `&&` is a continuation, not a new separator.
+      if (hadCommand) before = token.value;
       continue;
     }
     current.push(token);

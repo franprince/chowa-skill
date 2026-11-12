@@ -149,3 +149,9 @@ test('applyPatchTargets is inert on ordinary commands', () => {
   assert.deepEqual(applyPatchTargets('git status'), []);
   assert.deepEqual(applyPatchTargets(undefined), []);
 });
+
+test('splitSegments records the operator that joins each command to the one before', () => {
+  const joins = (command) => splitSegments(command).map((segment) => segment.before);
+  assert.deepEqual(joins('a && b || c; d | e & f\ng'), [null, '&&', '||', ';', '|', '&', '\n']);
+  assert.deepEqual(joins('a &&\n  b'), [null, '&&']);
+});

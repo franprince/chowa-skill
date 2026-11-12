@@ -44,7 +44,12 @@ no-opinion response is `{}`.
 
 Guards judge each command where it runs: along one command line they follow
 `cd` and `git checkout`/`switch`, and they skip heredoc bodies unless a shell
-reads them. They do not resolve variables, command substitution, or `eval`.
+reads them. A `cd` or switch counts for the next command only as far as the
+joining operator shows it took effect: fully after `&&`, never on the right of
+`||`, and a `cd` never across `|` or `&`. A switch that is not followed by `&&`
+can add protection but not remove it. `git` or `gh` after a program the guard
+does not know is treated as being run. They do not resolve variables, command
+substitution, or `eval`.
 Where a directory or branch cannot be determined, the spec guard defers and
 the push guard assumes the session's starting branch.
 

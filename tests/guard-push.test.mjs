@@ -223,3 +223,59 @@ test('decide quotes only the start of a very long command', () => {
   assert.equal(result.blocked, true);
   assert.ok(result.reason.length < 600, `reason is ${result.reason.length} characters`);
 });
+
+test('decide trusts a cd or a switch only as far as the joining operator shows it succeeded', () => {
+  const branchIn = (directory) => ({ '/work/app': 'main', '/work/topic': 'feat/x' })[directory];
+  const from = (command) => decide(command, branchIn, '/work/app').blocked;
+
+  // `&&`, `;` and a newline reach an existing repository.
+  assert.equal(from('cd /work/topic && git push'), false);
+  assert.equal(from('cd /work/topic; git push'), false);
+  assert.equal(from('cd /work/topic\ngit push'), false);
+  assert.equal(from('cd /work/topic || exit 1; git push'), false);
+
+  // The right side of `||` runs because the cd failed.
+  assert.equal(from('cd /work/topic || git push'), true);
+  // A cd in a pipeline or in the background runs in a subshell.
+  assert.equal(from('cd /work/topic | git push'), true);
+  assert.equal(from('cd /work/topic & git push'), true);
+  // A directory with no repository is one the cd never reached.
+  assert.equal(from('cd /work/missing; git push'), true);
+  assert.equal(from('cd /work/missing && git push'), true);
+});
+
+test('decide lets a switch remove protection only after &&', () => {
+  const onMain = (command) => decide(command, () => 'main').blocked;
+  assert.equal(onMain('git switch -c feat/x && git push -u origin HEAD'), false);
+  assert.equal(onMain('git switch feat/x; git push'), true);
+  assert.equal(onMain('git switch feat/x || git push'), true);
+  assert.equal(onMain('git switch feat/x | tail -1; git push'), true);
+
+  // Towards more protection, an unconfirmed switch is still believed.
+  const onTopic = (command) => decide(command, () => 'feat/x').blocked;
+  assert.equal(onTopic('git switch main; git push'), true);
+  assert.equal(onTopic('git switch main | tail -1; git push'), true);
+});
+
+test('decide finds git behind a program it does not know', () => {
+  const onMain = (command) => decide(command, () => 'main').blocked;
+  for (const command of [
+    'flock /tmp/lock git push',
+    'watch -n1 git push',
+    'rtk git push',
+    '>/dev/null FOO=1 git push',
+    '\\git push',
+  ]) {
+    assert.equal(onMain(command), true, command);
+  }
+  for (const command of ['echo git push', 'grep -r git push docs', 'gh pr create --title git push']) {
+    assert.equal(onMain(command), false, command);
+  }
+});
+
+test('decide reads a heredoc that source or . executes', () => {
+  const onMain = (command) => decide(command, () => 'main').blocked;
+  assert.equal(onMain('source /dev/stdin <<EOF\ngit push\nEOF'), true);
+  assert.equal(onMain('. /dev/stdin <<EOF\ngit push\nEOF'), true);
+  assert.equal(onMain('cat <<EOF\ngit push\nEOF'), false);
+});
