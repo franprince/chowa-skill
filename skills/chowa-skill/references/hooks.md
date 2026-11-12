@@ -4,7 +4,8 @@ The bundled dispatcher `scripts/guard.mjs` runs push/merge and spec-location
 checks before tool execution. Push/merge protection applies in every project
 and asks for approval of recognized protected-branch pushes, deletes, and
 merges, or denies where the host cannot ask. Spec-location protection applies
-only with persistent opt-in. Guards do not infer conversational approval.
+only with persistent opt-in, and leaves a root-level spec file alone when git
+already tracks it. Guards do not infer conversational approval.
 
 | Harness | Project config | Event | Matched tools | Can ask |
 |---|---|---|---|---|
@@ -40,6 +41,12 @@ checks, not a shell sandbox. Blocked actions use the host's rejection schema;
 unknown dialects get exit code 2 with a reason on stderr. Guards defer to
 normal host permissions on malformed or unrecognized payloads; Antigravity's
 no-opinion response is `{}`.
+
+Guards judge each command where it runs: along one command line they follow
+`cd` and `git checkout`/`switch`, and they skip heredoc bodies unless a shell
+reads them. They do not resolve variables, command substitution, or `eval`.
+Where a directory or branch cannot be determined, the spec guard defers and
+the push guard assumes the session's starting branch.
 
 `CHOWA_GUARDS=off` disables both guards (`0` and `false` also work). Use this
 only for an explicitly authorized configuration change, such as an unattended

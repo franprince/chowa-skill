@@ -120,3 +120,99 @@ test('decide covers the path key each harness uses', () => {
 test('decide denies rather than asks, since the agent can fix it itself', () => {
   assert.equal(decide('Write', { file_path: 'spec.md' }, mockCwd).decision, 'deny');
 });
+
+const shell = (command, cwd = mockCwd, projectRoot = mockCwd) =>
+  decide('Bash', { command }, cwd, projectRoot).blocked;
+
+test('decide resolves a write against the directory an earlier cd moved to', () => {
+  for (const command of [
+    'cd specs/2026-08-07-feat && touch spec.md',
+    'cd specs/2026-08-07-feat && cat > tasks.md <<EOF\n- [ ] one\nEOF',
+    'cd src && echo x > spec.md',
+    'pushd specs/2026-08-07-feat; touch implementation_plan.md',
+  ]) {
+    assert.equal(shell(command), false, command);
+  }
+});
+
+test('decide blocks a root spec write reached by moving up to the root', () => {
+  assert.equal(shell('cd .. && touch spec.md', `${mockCwd}/src`), true);
+  assert.equal(shell('cd src && cd .. && touch spec.md'), true);
+});
+
+test('decide ends a subshell directory change at its closing parenthesis', () => {
+  for (const command of [
+    '(cd specs/2026-08-07-feat && echo "done"); touch spec.md',
+    '(cd src && touch notes.md) && touch spec.md',
+    '(touch spec.md)',
+  ]) {
+    assert.equal(shell(command), true, command);
+  }
+  assert.equal(shell('(cd specs/2026-08-07-feat && touch spec.md)'), false);
+});
+
+test('decide defers a relative write from a directory it cannot resolve', () => {
+  assert.equal(shell('cd "$DIR" && touch spec.md'), false);
+  assert.equal(shell(`cd "$DIR" && touch ${mockCwd}/spec.md`), true);
+});
+
+test('decide ignores a heredoc body that only mentions a root spec file', () => {
+  assert.equal(shell('cat > notes.txt <<EOF\necho draft > spec.md\nEOF'), false);
+  assert.equal(shell('cat > spec.md <<EOF\n# Spec\nEOF'), true);
+});
+
+test('decide quotes only the start of a very long command', () => {
+  const result = decide('Bash', { command: `touch spec.md ${'x'.repeat(5000)}` }, mockCwd);
+  assert.equal(result.blocked, true);
+  assert.ok(result.reason.length < 600, `reason is ${result.reason.length} characters`);
+});
+
+/** A tracking predicate that knows the given absolute paths, as git would. */
+const tracking = (...paths) => (absolutePath) => paths.includes(absolutePath);
+const verdict = (toolName, toolInput, isTracked, cwd = mockCwd) =>
+  decide(toolName, toolInput, cwd, mockCwd, isTracked).blocked;
+
+test('decide allows a root spec file that git already tracks, on every write path', () => {
+  const isTracked = tracking(`${mockCwd}/spec.md`);
+  const patch = '*** Begin Patch\n*** Update File: spec.md\n@@\n-a\n+b\n*** End Patch';
+
+  assert.equal(verdict('Edit', { file_path: 'spec.md' }, isTracked), false);
+  assert.equal(verdict('Write', { file_path: `${mockCwd}/spec.md` }, isTracked), false);
+  assert.equal(verdict('apply_patch', { command: patch }, isTracked), false);
+  assert.equal(verdict('Bash', { command: 'sed -i s/a/b/ spec.md' }, isTracked), false);
+  assert.equal(verdict('Bash', { command: 'echo x >> ./spec.md' }, isTracked), false);
+});
+
+test('decide still denies an untracked root spec file beside a tracked one', () => {
+  const isTracked = tracking(`${mockCwd}/spec.md`);
+  const patch =
+    '*** Begin Patch\n*** Update File: spec.md\n@@\n-a\n+b\n*** Add File: tasks.md\n+- [ ] one\n*** End Patch';
+
+  assert.equal(verdict('Write', { file_path: 'tasks.md' }, isTracked), true);
+  assert.equal(verdict('apply_patch', { command: patch }, isTracked), true);
+  assert.equal(verdict('Bash', { command: 'touch spec.md tasks.md' }, isTracked), true);
+  assert.equal(verdict('Bash', { command: 'sed -i s/a/b/ spec.md && touch tasks.md' }, isTracked), true);
+});
+
+test('decide asks about tracking with the path as written, from where the command runs', () => {
+  const isTracked = tracking(`${mockCwd}/SPEC.md`);
+
+  assert.equal(verdict('Edit', { file_path: 'SPEC.md' }, isTracked), false);
+  assert.equal(verdict('Edit', { file_path: 'spec.md' }, isTracked), true);
+  assert.equal(verdict('Bash', { command: 'cd src && cd .. && sed -i s/a/b/ SPEC.md' }, isTracked), false);
+  assert.equal(verdict('Bash', { command: 'sed -i s/a/b/ ../SPEC.md' }, isTracked, `${mockCwd}/src`), false);
+  assert.equal(verdict('Bash', { command: `cd "$DIR" && touch ${mockCwd}/SPEC.md` }, isTracked), false);
+});
+
+test('decide consults tracking only for a root spec path', () => {
+  const asked = [];
+  const isTracked = (absolutePath) => {
+    asked.push(absolutePath);
+    return false;
+  };
+
+  verdict('Write', { file_path: 'src/index.js' }, isTracked);
+  verdict('Write', { file_path: 'specs/2026-08-07-feat/spec.md' }, isTracked);
+  verdict('Bash', { command: 'cd specs/2026-08-07-feat && touch spec.md && npm test' }, isTracked);
+  assert.deepEqual(asked, []);
+});

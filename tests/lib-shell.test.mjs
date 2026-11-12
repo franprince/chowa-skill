@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyPatchTargets,
+  clip,
   lex,
   redirectTargets,
   splitSegments,
@@ -94,6 +95,54 @@ test('applyPatchTargets reads every path an envelope writes', () => {
     'docs/index.js',
     'old.md',
   ]);
+});
+
+const values = (command) => lex(command).map((token) => token.value);
+
+test('lex skips a heredoc body up to its terminator', () => {
+  assert.deepEqual(
+    values('cat > out.md <<EOF\ngit push origin main\nEOF\nls'),
+    ['cat', '>', 'out.md', '<<', 'EOF', '\n', 'ls'],
+  );
+});
+
+test('lex honours quoted and tab-stripped heredoc delimiters', () => {
+  assert.deepEqual(values("cat <<'EOF'\nbody > spec.md\nEOF\nls"), ['cat', '<<', 'EOF', '\n', 'ls']);
+  assert.deepEqual(values('cat <<-EOF\n\tbody\n\tEOF\nls'), ['cat', '<<', 'EOF', '\n', 'ls']);
+});
+
+test('lex scans what follows << as commands when no terminator line exists', () => {
+  assert.deepEqual(values('echo $((1 << 2))\nls'), ['echo', '$((1', '<<', '2))', '\n', 'ls']);
+});
+
+test('lex keeps a heredoc body visible when it is fed to a shell', () => {
+  assert.ok(values('bash <<EOF\ngit push origin main\nEOF').includes('git'));
+  assert.ok(values('sudo /bin/sh <<EOF\ntouch spec.md\nEOF').includes('touch'));
+  assert.ok(values('cat <<EOF | bash\ngit push origin main\nEOF').includes('git'));
+});
+
+test('lex reads a here-string as one operator and its word', () => {
+  assert.deepEqual(values('grep x <<< "a b"\nls'), ['grep', 'x', '<<<', 'a b', '\n', 'ls']);
+});
+
+test('lex strips subshell parentheses and counts them on the adjacent words', () => {
+  const tokens = lex('(cd sub && echo "done")');
+  assert.deepEqual(tokens.map((token) => token.value), ['cd', 'sub', '&&', 'echo', 'done']);
+  assert.equal(tokens[0].opens, 1);
+  assert.equal(tokens[4].closes, 1);
+  assert.equal(tokens[1].opens + tokens[1].closes, 0);
+});
+
+test('lex leaves command-substitution parentheses inside their words', () => {
+  const tokens = lex('echo $(date +%s)');
+  assert.deepEqual(tokens.map((token) => token.value), ['echo', '$(date', '+%s)']);
+  assert.equal(tokens.reduce((sum, token) => sum + token.opens + token.closes, 0), 0);
+});
+
+test('clip shortens long text and leaves short text alone', () => {
+  assert.equal(clip('git status'), 'git status');
+  assert.equal(clip('x'.repeat(500)).length, 201);
+  assert.ok(clip('x'.repeat(500)).endsWith('…'));
 });
 
 test('applyPatchTargets is inert on ordinary commands', () => {

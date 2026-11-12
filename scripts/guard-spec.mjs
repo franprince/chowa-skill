@@ -2,14 +2,14 @@
 /**
  * Spec protection (pre-tool-use hook)
  *
- * Prevents agents from creating or modifying loose root-level spec files
- * (`spec.md`, `implementation_plan.md`, or `tasks.md`). Enforces that specs
- * must live inside dedicated feature directories under
- * `specs/<YYYY-MM-DD>-<slug>/` and be recorded in `specs/INDEX.md`.
+ * Prevents agents from creating loose root-level spec files (`spec.md`,
+ * `implementation_plan.md`, or `tasks.md`). Enforces that specs must live
+ * inside dedicated feature directories under `specs/<YYYY-MM-DD>-<slug>/`
+ * and be recorded in `specs/INDEX.md`.
  *
  * Iterating on specs is supported by editing files inside `specs/<YYYY-MM-DD>-<slug>/`.
  *
- * Two things scope this deliberately:
+ * Three things scope this deliberately:
  *
  * 1. **It only applies where the convention does.** A root-level `tasks.md`
  *    is an ordinary file in most repositories, and this guard has no
@@ -22,14 +22,23 @@
  *    exactly where the file belongs instead, so it can correct itself on
  *    the next call — routing a path convention to the user would be noise.
  *    The push guard makes the opposite call, for the opposite reason.
+ * 3. **It leaves files the repository already tracks alone.** A committed
+ *    root `SPEC.md` is the project's own document, not a stray draft, and
+ *    the relocation advice would be wrong for it. Only `inspect` asks git;
+ *    `decide` takes the answer as a predicate.
+ *
+ * Shell writes are resolved against the directory each command runs in:
+ * `cd specs/2026-08-07-x && touch spec.md` writes inside the feature
+ * directory, which is exactly where the file belongs.
  */
 
-import { posix, win32 } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
+import { pathApiFor, walkCommands } from './lib/context.mjs';
 import { isDirectRun } from './lib/direct-run.mjs';
 import { emit, normalize, resolveDialect } from './lib/harness.mjs';
 import { findProjectRoot, guardsDisabled, isOptedIn } from './lib/opt-in.mjs';
-import { applyPatchTargets, redirectTargets, splitSegments, words } from './lib/shell.mjs';
+import { applyPatchTargets, clip, redirectTargets, words } from './lib/shell.mjs';
 
 /** The spec documents that belong in a feature directory, never at the root. */
 const SPEC_FILENAMES = new Set(['spec.md', 'implementation_plan.md', 'tasks.md']);
@@ -48,7 +57,7 @@ const WRITES_LAST_OPERAND = new Set(['cp', 'mv', 'install', 'ln', 'rsync']);
 export function isRootSpecPath(targetPath, cwd = process.cwd(), projectRoot = cwd) {
   if (!targetPath || typeof targetPath !== 'string') return false;
 
-  const pathApi = /^[A-Za-z]:[\\/]/.test(cwd) || cwd.startsWith('\\\\') ? win32 : posix;
+  const pathApi = pathApiFor(cwd);
   const absoluteTarget = pathApi.resolve(cwd, targetPath);
   const relativeTarget = pathApi.relative(projectRoot, absoluteTarget);
 
@@ -98,15 +107,45 @@ function writeTargets(tokens) {
   return targets;
 }
 
-/**
- * Check if a bash command segment attempts to write to a root-level spec file.
- */
-export function isRootSpecBashCommand(segment, cwd = process.cwd()) {
-  if (!segment || typeof segment !== 'string') return false;
+/** Nothing is tracked: the answer when no repository has been consulted. */
+const untracked = () => false;
 
-  return splitSegments(segment).some((parsed) =>
-    writeTargets(parsed.tokens).some((target) => isRootSpecPath(target, cwd)),
+/**
+ * Is this write one the guard rejects: a root-level spec file that the
+ * repository does not already track? `isTracked` is only consulted once the
+ * path is known to be a root spec, so ordinary writes never reach git.
+ */
+function isLooseRootSpec(target, cwd, projectRoot, isTracked) {
+  if (!isRootSpecPath(target, cwd, projectRoot)) return false;
+  return !isTracked(pathApiFor(cwd).resolve(cwd, target));
+}
+
+/**
+ * The first command on a line that writes a loose root-level spec file, if
+ * any.
+ *
+ * A relative target is only meaningful from a known directory; after a
+ * `cd` this cannot follow, relative writes defer and absolute ones are
+ * still checked.
+ */
+function rootSpecWrite(command, cwd, projectRoot, isTracked = untracked) {
+  return walkCommands(command, cwd).find((step) =>
+    writeTargets(step.tokens).some((target) => {
+      if (step.cwd !== null) return isLooseRootSpec(target, step.cwd, projectRoot, isTracked);
+      return (
+        pathApiFor(projectRoot).isAbsolute(target) &&
+        isLooseRootSpec(target, projectRoot, projectRoot, isTracked)
+      );
+    }),
   );
+}
+
+/**
+ * Check if a bash command line attempts to write to a root-level spec file.
+ */
+export function isRootSpecBashCommand(command, cwd = process.cwd()) {
+  if (!command || typeof command !== 'string') return false;
+  return rootSpecWrite(command, cwd, cwd) !== undefined;
 }
 
 const RELOCATION_GUIDANCE =
@@ -116,9 +155,17 @@ const RELOCATION_GUIDANCE =
 /**
  * Decide whether a tool call should be blocked due to spec policy violation.
  *
- * Pure policy: it assumes the project has already been found to opt in.
+ * Pure policy: it assumes the project has already been found to opt in,
+ * and it learns what the repository tracks from `isTracked`, which receives
+ * the absolute path of a root-level spec file.
  */
-export function decide(toolName, toolInput, cwd = process.cwd(), projectRoot = cwd) {
+export function decide(
+  toolName,
+  toolInput,
+  cwd = process.cwd(),
+  projectRoot = cwd,
+  isTracked = untracked,
+) {
   if (!toolName || !toolInput) return { blocked: false };
 
   // 1. File modification tools (Write, Edit, NotebookEdit, write_file,
@@ -131,12 +178,12 @@ export function decide(toolName, toolInput, cwd = process.cwd(), projectRoot = c
     toolInput.TargetFile ||
     toolInput.target_file ||
     toolInput.AbsolutePath;
-  if (filePath && isRootSpecPath(filePath, cwd, projectRoot)) {
+  if (filePath && isLooseRootSpec(filePath, cwd, projectRoot, isTracked)) {
     return {
       blocked: true,
       decision: 'deny',
       reason:
-        `Creating or editing root-level \`${filePath}\` is prohibited to prevent overwriting past specs. ` +
+        `Creating or editing root-level \`${clip(filePath)}\` is prohibited to prevent overwriting past specs. ` +
         RELOCATION_GUIDANCE,
     };
   }
@@ -147,30 +194,49 @@ export function decide(toolName, toolInput, cwd = process.cwd(), projectRoot = c
     // Codex edits files through an `apply_patch` envelope rather than a
     // write tool, so the path only appears inside the patch header.
     for (const target of applyPatchTargets(command)) {
-      if (isRootSpecPath(target, cwd, projectRoot)) {
+      if (isLooseRootSpec(target, cwd, projectRoot, isTracked)) {
         return {
           blocked: true,
           decision: 'deny',
           reason:
-            `This patch writes root-level \`${target}\`, which is prohibited. ` + RELOCATION_GUIDANCE,
+            `This patch writes root-level \`${clip(target)}\`, which is prohibited. ` + RELOCATION_GUIDANCE,
         };
       }
     }
 
-    for (const segment of splitSegments(command)) {
-      if (writeTargets(segment.tokens).some((target) => isRootSpecPath(target, cwd, projectRoot))) {
-        return {
-          blocked: true,
-          decision: 'deny',
-          reason:
-            `Command \`${segment.text}\` targets a root-level spec file. Root-level specs are prohibited. ` +
-            RELOCATION_GUIDANCE,
-        };
-      }
+    const write = rootSpecWrite(command, cwd, projectRoot, isTracked);
+    if (write) {
+      return {
+        blocked: true,
+        decision: 'deny',
+        reason:
+          `Command \`${clip(write.text)}\` targets a root-level spec file. Root-level specs are prohibited. ` +
+          RELOCATION_GUIDANCE,
+      };
     }
   }
 
   return { blocked: false };
+}
+
+/**
+ * Ask git whether it tracks a file. Anything short of a clear yes — an
+ * untracked file, no repository, no `git`, a timeout — is a no, which keeps
+ * the write denied exactly as it was before this question existed.
+ */
+function trackedIn(projectRoot) {
+  return (absolutePath) => {
+    try {
+      execFileSync('git', ['ls-files', '--error-unmatch', '--', absolutePath], {
+        cwd: projectRoot,
+        stdio: 'ignore',
+        timeout: 2000,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
 }
 
 /**
@@ -183,13 +249,20 @@ export function inspect(request, options = {}) {
 
   try {
     const projectRoot = findProjectRoot(request.cwd);
+    const isTracked = trackedIn(projectRoot);
     // Every collected path gets its own pass, since `decide` inspects one.
     for (const path of request.filePaths) {
-      const verdict = decide(request.toolName || 'Write', { file_path: path }, request.cwd, projectRoot);
+      const verdict = decide(request.toolName || 'Write', { file_path: path }, request.cwd, projectRoot, isTracked);
       if (verdict.blocked) return verdict;
     }
     if (request.command !== undefined) {
-      return decide(request.toolName || 'Bash', { command: request.command }, request.cwd, projectRoot);
+      return decide(
+        request.toolName || 'Bash',
+        { command: request.command },
+        request.cwd,
+        projectRoot,
+        isTracked,
+      );
     }
     return { blocked: false };
   } catch {

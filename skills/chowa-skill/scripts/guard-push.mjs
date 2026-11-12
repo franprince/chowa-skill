@@ -28,6 +28,10 @@
  *
  * This guard is unconditional: unlike the spec guard, it encodes no
  * Chōwa-specific convention, only the near-universal one about `main`.
+ *
+ * Each command is judged where it runs, not where the session started:
+ * `lib/context.mjs` follows `cd` and `git checkout`/`switch` along the
+ * command line, so `git checkout main && git push` is a push to `main`.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -35,28 +39,13 @@ import { execFileSync } from 'node:child_process';
 import { isDirectRun } from './lib/direct-run.mjs';
 import { emit, normalize, resolveDialect } from './lib/harness.mjs';
 import { guardsDisabled } from './lib/opt-in.mjs';
-import { splitSegments, words } from './lib/shell.mjs';
+import { parseGh, parseGit, resolveDirectory, walkCommands } from './lib/context.mjs';
+import { clip, words } from './lib/shell.mjs';
 
 const PROTECTED_BRANCHES = new Set(['main', 'master']);
 
 /** Refspecs that mean "the branch I am on right now". */
 const CURRENT_BRANCH_REFS = new Set(['HEAD', '@']);
-
-/**
- * `git`'s own flags that consume the following token as a value. These have
- * to be recognized *before* the generic "skip anything starting with `-`"
- * rule, or the value is mistaken for the subcommand: `git -C /repo push`
- * reads as subcommand `/repo`, and the push sails through unguarded.
- */
-const GIT_VALUE_FLAGS = new Set([
-  '-C',
-  '-c',
-  '--git-dir',
-  '--work-tree',
-  '--namespace',
-  '--exec-path',
-  '--config-env',
-]);
 
 /**
  * `git push`'s flags that consume the following token as a value. Without
@@ -76,32 +65,40 @@ function destinationRef(refspec) {
 }
 
 /**
- * The subcommand of a `git` invocation, or `undefined` if this isn't one.
- * Tolerates leading env assignments and absolute paths to the binary.
+ * Does this `gh api` call write? `gh` sends GET unless told otherwise or
+ * given fields, and `GET …/pulls/1/merge` only asks whether a PR is merged.
  */
-function gitSubcommand(tokens) {
-  const gitIndex = tokens.findIndex((token) => token === 'git' || token.endsWith('/git'));
-  if (gitIndex === -1) return undefined;
-
-  // The first token after `git` that is neither a global flag nor a global
-  // flag's value is the subcommand.
-  for (let i = gitIndex + 1; i < tokens.length; i += 1) {
-    const token = tokens[i];
-    if (GIT_VALUE_FLAGS.has(token)) {
-      i += 1;
-      continue;
-    }
-    if (token.startsWith('-')) continue;
-    return token;
+function ghApiWrites(args) {
+  let method;
+  let hasFields = false;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '-X' || arg === '--method') method = args[i + 1];
+    else if (arg.startsWith('--method=')) method = arg.slice('--method='.length);
+    else if (/^-X./.test(arg)) method = arg.slice(2);
+    else if (/^(?:-[fF]|--field|--raw-field|--input)(?:$|=)/.test(arg) || /^-[fF]./.test(arg)) hasFields = true;
   }
-  return undefined;
+  return method ? method.toUpperCase() !== 'GET' : hasFields;
 }
 
-/** The subcommand chain of a `gh` invocation, e.g. `['pr', 'merge']`. */
-function ghSubcommands(tokens) {
-  const ghIndex = tokens.findIndex((token) => token === 'gh' || token.endsWith('/gh'));
-  if (ghIndex === -1) return [];
-  return tokens.slice(ghIndex + 1).filter((token) => !token.startsWith('-'));
+/**
+ * The branch a command acts on: the repository `-C` names, else the branch
+ * an earlier command on this line switched to, else the one checked out.
+ *
+ * Where the command line cannot be followed (`cd "$DIR"`, `git switch -`),
+ * the answer is the branch the session started on. That is what this guard
+ * always assumed, so losing track never makes it quieter than it was.
+ */
+function branchFor(step, git, resolveBranch, startCwd) {
+  if (git?.directories.length) {
+    return resolveBranch(resolveDirectory(step.cwd, ...git.directories) ?? startCwd);
+  }
+  // `git checkout <word>` may only have restored a file, so an uncertain
+  // switch is believed when it adds protection and never when it removes it.
+  if (step.branch && (step.branchCertain || PROTECTED_BRANCHES.has(step.branch))) {
+    return step.branch;
+  }
+  return resolveBranch(step.cwd ?? startCwd);
 }
 
 /**
@@ -120,22 +117,27 @@ function ghSubcommands(tokens) {
  * whenever the call failed — the wrong trade for the one action here that
  * cannot be undone by a subsequent commit.
  */
-function landsCode(tokens, resolveBranch) {
-  const gh = ghSubcommands(tokens);
+function landsCode(list, git, resolveBranch) {
+  const gh = parseGh(list);
+  const chain = gh?.subcommands ?? [];
 
-  if (gh[0] === 'pr' && gh[1] === 'merge') {
+  if (chain[0] === 'pr' && chain[1] === 'merge') {
     return 'merges a pull request';
   }
 
   // The REST equivalent: `gh api repos/o/r/pulls/1/merge -X PUT`, and the
   // branch-merge endpoint `repos/o/r/merges`.
-  if (gh[0] === 'api' && gh.some((argument) => /\/(?:merge|merges)\b/.test(argument))) {
+  if (
+    chain[0] === 'api' &&
+    chain.some((argument) => /\/(?:merge|merges)(?:[/?]|$)/.test(argument)) &&
+    ghApiWrites(gh.args)
+  ) {
     return 'merges through the GitHub API';
   }
 
   // A local merge while sitting on a protected branch moves it immediately;
   // catching it here reports the real action rather than the later push.
-  if (gitSubcommand(tokens) === 'merge') {
+  if (git?.subcommand === 'merge') {
     const branch = resolveBranch();
     if (branch && PROTECTED_BRANCHES.has(branch)) {
       return `merges into \`${branch}\`, which is checked out`;
@@ -149,26 +151,29 @@ function landsCode(tokens, resolveBranch) {
  * Decide whether a command should be blocked.
  *
  * `resolveBranch` is injected so the decision is testable without a real
- * repository; it returns the current branch name or `undefined`.
+ * repository; given a directory, it returns the branch checked out there or
+ * `undefined`. `cwd` is where the command line starts.
  */
-export function decide(command, resolveBranch) {
+export function decide(command, resolveBranch, cwd = process.cwd()) {
   if (typeof command !== 'string') return { blocked: false };
   if (!command.includes('push') && !command.includes('merge')) {
     return { blocked: false };
   }
 
-  for (const segment of splitSegments(command)) {
-    const tokens = words(segment.tokens);
+  for (const step of walkCommands(command, cwd)) {
+    const list = words(step.tokens);
+    const git = parseGit(list);
+    const currentBranch = () => branchFor(step, git, resolveBranch, cwd);
+    const quoted = `\`${clip(step.text)}\``;
 
-    const landing = landsCode(tokens, resolveBranch);
+    const landing = landsCode(list, git, currentBranch);
     if (landing) {
-      return block(`\`${segment.text}\` ${landing}.`, MERGE_GUIDANCE);
+      return block(`${quoted} ${landing}.`, MERGE_GUIDANCE);
     }
 
-    if (gitSubcommand(tokens) !== 'push') continue;
+    if (git?.subcommand !== 'push') continue;
 
-    const pushIndex = tokens.indexOf('push');
-    const rest = tokens.slice(pushIndex + 1);
+    const rest = git.args;
 
     const positionals = [];
     let deleting = false;
@@ -194,7 +199,7 @@ export function decide(command, resolveBranch) {
 
     // `--all`/`--mirror` push every branch, main included.
     if (pushesEverything) {
-      return block(`\`${segment.text}\` pushes every branch, which includes a protected branch.`);
+      return block(`${quoted} pushes every branch, which includes a protected branch.`);
     }
 
     // With a refspec, the destination ref decides it. `git push origin main`
@@ -205,13 +210,13 @@ export function decide(command, resolveBranch) {
         let destination = destinationRef(refspec);
         // `git push origin HEAD` writes to whatever branch is checked out,
         // so the refspec alone doesn't say where it lands.
-        if (CURRENT_BRANCH_REFS.has(destination)) destination = resolveBranch() ?? destination;
+        if (CURRENT_BRANCH_REFS.has(destination)) destination = currentBranch() ?? destination;
 
         if (PROTECTED_BRANCHES.has(destination)) {
           return block(
             deleting
-              ? `\`${segment.text}\` would delete the protected branch \`${destination}\`.`
-              : `\`${segment.text}\` pushes directly to \`${destination}\`.`,
+              ? `${quoted} would delete the protected branch \`${destination}\`.`
+              : `${quoted} pushes directly to \`${destination}\`.`,
           );
         }
       }
@@ -219,9 +224,9 @@ export function decide(command, resolveBranch) {
     }
 
     // No refspec: the push target is the current branch's upstream.
-    const branch = resolveBranch();
+    const branch = currentBranch();
     if (branch && PROTECTED_BRANCHES.has(branch)) {
-      return block(`\`${segment.text}\` pushes the current branch, which is \`${branch}\`.`);
+      return block(`${quoted} pushes the current branch, which is \`${branch}\`.`);
     }
   }
 
@@ -260,7 +265,7 @@ function currentBranchIn(cwd) {
 export function inspect(request) {
   if (!request.command) return { blocked: false };
   try {
-    return decide(request.command, () => currentBranchIn(request.cwd));
+    return decide(request.command, currentBranchIn, request.cwd);
   } catch {
     return { blocked: false }; // Fail open, always.
   }

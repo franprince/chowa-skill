@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { decide } from '../scripts/guard-push.mjs';
 
 test('decide blocks direct push to main', () => {
@@ -112,4 +114,112 @@ test('decide leaves non-landing gh and git commands alone', () => {
   ]) {
     assert.equal(decide(command, () => 'feat/x').blocked, false, command);
   }
+});
+
+test('decide sees git behind the prefixes that leave it in command position', () => {
+  for (const prefix of [
+    'sudo', 'sudo -u deploy', 'env GIT_TRACE=1', 'GIT_TRACE=1', 'command', 'exec', 'eval',
+    'time', 'timeout 30', 'nohup', 'xargs', 'if', '!',
+  ]) {
+    const command = `${prefix} git push origin main`;
+    assert.equal(decide(command, () => 'feat/x').blocked, true, command);
+  }
+});
+
+test('decide ignores git and gh named as arguments to another command', () => {
+  for (const command of [
+    'echo git push origin main',
+    'man git push',
+    'grep -rn git push origin main',
+    'echo gh pr merge 12',
+  ]) {
+    assert.equal(decide(command, () => 'feat/x').blocked, false, command);
+  }
+});
+
+test('decide ignores a heredoc body that only mentions a push or merge', () => {
+  for (const command of [
+    'cat > NOTES.md <<EOF\nThen run git push origin main\nEOF',
+    "cat <<'EOF' > NOTES.md\ngh pr merge 12\nEOF",
+  ]) {
+    assert.equal(decide(command, () => 'feat/x').blocked, false, command);
+  }
+});
+
+test('decide still inspects a heredoc that is fed to a shell', () => {
+  assert.equal(decide('bash <<EOF\ngit push origin main\nEOF', () => 'feat/x').blocked, true);
+});
+
+test('decide follows a branch switch made earlier in the same command line', () => {
+  const merge = decide('git checkout main && git merge feat/x && git push', () => 'feat/x');
+  assert.equal(merge.blocked, true);
+  assert.match(merge.reason, /merges into `main`/);
+
+  const push = decide('git switch main; git push', () => 'feat/x');
+  assert.equal(push.blocked, true);
+  assert.match(push.reason, /current branch, which is `main`/);
+
+  assert.equal(decide('git checkout -b feat/y && git push', () => 'main').blocked, false);
+  assert.equal(decide('git switch -c feat/y && git push -u origin HEAD', () => 'main').blocked, false);
+});
+
+test('decide does not mistake a path restore for a branch switch', () => {
+  assert.equal(decide('git checkout main -- README.md && git push', () => 'feat/x').blocked, false);
+  assert.equal(decide('git checkout main README.md && git push', () => 'feat/x').blocked, false);
+  assert.equal(decide('git checkout . && git push', () => 'main').blocked, true);
+  assert.equal(decide('git checkout README.md && git push', () => 'main').blocked, true);
+});
+
+test('decide returns to the starting branch on checkout -', () => {
+  const command = 'git checkout main && git pull && git checkout - && git push';
+  assert.equal(decide(command, () => 'feat/x').blocked, false);
+});
+
+test('decide resolves the branch in the directory the push runs in', () => {
+  const branchIn = (directory) => ({ '/work/app': 'feat/x', '/work/other': 'main' })[directory];
+
+  assert.equal(decide('cd ../other && git push', branchIn, '/work/app').blocked, true);
+  assert.equal(decide('git -C ../app push', branchIn, '/work/other').blocked, false);
+  assert.equal(decide('(cd ../other && git status); git push', branchIn, '/work/app').blocked, false);
+  assert.equal(decide('(cd ../other && echo "done"); git push', branchIn, '/work/app').blocked, false);
+});
+
+test('decide falls back to the starting branch when it cannot follow the command line', () => {
+  const branchIn = (directory) => ({ '/work/app': 'main' })[directory];
+  for (const command of [
+    'cd "$REPO" && git push',
+    'cd "$(git rev-parse --show-toplevel)" && git push',
+    'cd "$PWD" && git merge feat/x',
+    'git -C "$REPO" push',
+    'git switch - && git push',
+  ]) {
+    assert.equal(decide(command, branchIn, '/work/app').blocked, true, command);
+  }
+});
+
+test('decide expands a home-relative cd before reading the branch there', () => {
+  const home = homedir();
+  const branchIn = (directory) => ({ [join(home, 'repo')]: 'main', '/work/app': 'feat/x' })[directory];
+  assert.equal(decide('cd ~/repo && git push', branchIn, '/work/app').blocked, true);
+});
+
+test('decide keeps a branch switch made inside a subshell', () => {
+  const command = '(git checkout main && git pull) && git push';
+  assert.equal(decide(command, () => 'feat/x', '/work/app').blocked, true);
+});
+
+test('decide asks about the GitHub merge API only when the call writes', () => {
+  assert.equal(decide('gh api repos/o/r/pulls/11/merge', () => 'feat/x').blocked, false);
+  assert.equal(decide('gh api -X GET repos/o/r/pulls/11/merge', () => 'feat/x').blocked, false);
+});
+
+test('decide sees a merge behind the gh repository flag', () => {
+  assert.equal(decide('gh -R o/r pr merge 11', () => 'feat/x').blocked, true);
+  assert.equal(decide('gh --repo o/r pr merge 11', () => 'feat/x').blocked, true);
+});
+
+test('decide quotes only the start of a very long command', () => {
+  const result = decide(`git push origin main ${'x'.repeat(5000)}`, () => 'feat/x');
+  assert.equal(result.blocked, true);
+  assert.ok(result.reason.length < 600, `reason is ${result.reason.length} characters`);
 });

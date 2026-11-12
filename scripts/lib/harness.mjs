@@ -288,14 +288,18 @@ function firstString(...candidates) {
 }
 
 /**
- * Write a verdict in the dialect's own schema and exit.
+ * Write a verdict in the dialect's own schema and set the exit code.
+ *
+ * The process is left to end on its own: `process.exit` here cut off any
+ * output still queued for a pipe, and a truncated verdict is not valid JSON.
+ * Callers return straight after this.
  *
  * @param {Verdict} verdict
  * @param {Dialect} dialect
  */
 export function emit(verdict, dialect) {
   const { stdout, stderr, exitCode } = dialect.render(verdict);
+  process.exitCode = exitCode;
   if (stdout) process.stdout.write(stdout);
   if (stderr) process.stderr.write(stderr);
-  process.exit(exitCode);
 }
